@@ -18,11 +18,6 @@ import { Label } from "./ui/label"
 import { Badge } from "./ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 
-const SCOPE_HELP: Record<string, string> = {
-  read: "See your applications, companies, and settings.",
-  write: "Create and change applications. This cannot approve anything.",
-}
-
 function errorText(err: unknown) {
   if (err instanceof ApiError) return err.hint ? `${err.message}. ${err.hint}` : err.message
   return err instanceof Error ? err.message : "Request failed"
@@ -57,7 +52,7 @@ function ScopeList({ scopes }: { scopes: string[] }) {
       {scopes.map((scope) => (
         <li key={scope} className="flex items-start gap-2 text-sm">
           <Badge variant="secondary">{scope}</Badge>
-          <span className="text-muted-foreground">{SCOPE_HELP[scope] || scope}</span>
+          <span className="text-muted-foreground">{brand().scopes[scope] || scope}</span>
         </li>
       ))}
     </ul>

@@ -43,6 +43,25 @@ Two entry points:
 
 Build-time switches the package reads directly: `NEXT_PUBLIC_EXPORT_MODE=1` (static export served by the Go binary), `NEXT_PUBLIC_NEON_AUTH_URL`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
 
+## What the app supplies
+
+The shell and the pieces around it take the app's parts as props, and three registries take the rest at module scope (call them in the same module as `configure`):
+
+| Piece | The app passes |
+| --- | --- |
+| `AppShell` | `home`, `nav`, a `search` slot, account `menu` entries, settings `sections`, `palette` groups, `events` (how an event reads and where it links), `enrich`, `shortcuts`, `tour` |
+| `SettingsDialog` | `sections`: `platformSections.appearance`, `.tokens`, `.apps`, `.account`, `.keys`, `.audit`, plus its own, built with `SettingsRow` and `SettingsChoice` |
+| `CommandPalette` | `groups`; settings sections and Sign out are added |
+| `LiveProvider` | `enrich(events)`, to attach what the app shows about each event's subject |
+| `NotificationBell` | `text` (`describe`, `href`, `meta`) and an optional first tab |
+| `SearchBox` | a `SearchSource`: the list page, the qualifiers and how each matches, how to load and show rows |
+| `StatusBadge` | a `statuses` map of label and tone |
+| `Tour` | `steps` and the `welcome` text |
+| `registerPrefs` | the app's preferences and their defaults |
+| `registerBindings` | the app's keyboard shortcuts |
+
+`useShell()` gives anything under `AppShell` `openSettings(section)` and `focusSearch(name)`. `useSection(path)` fetches one resource and refetches when the live feed reports a change. `components/table` has `SortHeader`, `IconAction`, `ScrollJumpButton` and `useRowSelection`.
+
 ## Working on it
 
 ```sh

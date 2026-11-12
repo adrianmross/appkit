@@ -91,7 +91,7 @@
   /* Filled pieces of the progress mark, round pies and stage segments. */
   --piece: #141615;
   --piece-foreground: #FFFFFF;
-  /* A stopped application's piece: pastel red, 3:1 on background and card. */
+  /* A stopped piece: pastel red, 3:1 on background and card. */
   --negative: #CC645B;
   --chart-1: #8A8E8A;
   --chart-2: #5D615E;

@@ -23,6 +23,8 @@ export type Brand = {
   /** Image URLs. `dark` is the one shown on dark backgrounds. */
   wordmark: { light: string; dark: string }
   mark: { light: string; dark: string }
+  /** What each token scope allows, in the words of the consent screen. A scope not listed shows as its name. */
+  scopes: Record<string, string>
   /** The sign-in page's headline and the line under it. */
   signIn: { title: string; subtitle: string }
   /** Rendered under every page that has a footer. */
@@ -42,6 +44,7 @@ let current: Brand = {
   serverApiUrl: "http://127.0.0.1:8787",
   wordmark: { light: "/brand/wordmark.svg", dark: "/brand/wordmark-reverse.svg" },
   mark: { light: "/brand/mark.svg", dark: "/brand/mark-reverse.svg" },
+  scopes: { read: "See your data and settings.", write: "Create and change your data. This cannot approve anything." },
   signIn: { title: "Sign in", subtitle: "" },
 }
 
