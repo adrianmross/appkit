@@ -1,0 +1,712 @@
+{
+ "users": {
+  "columns": [
+   {
+    "name": "announcements_seen",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "avatar",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "email",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "name",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "webauthn_user_handle",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE UNIQUE INDEX users_webauthn_handle_uidx ON users(webauthn_user_handle) WHERE webauthn_user_handle <> ''"
+  ]
+ },
+ "api_tokens": {
+  "columns": [
+   {
+    "name": "client",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "client_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "expires_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "family_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "ip",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "last_used_at",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "name",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "resource",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "revoked_at",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "scopes",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "token_hash",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "token_prefix",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX api_tokens_family_idx ON api_tokens(family_id) WHERE family_id <> ''"
+  ]
+ },
+ "idempotency_keys": {
+  "columns": [
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "idem_key",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "method",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "path",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "request_hash",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "response_body",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "status_code",
+    "type": "BIGINT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "token_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": []
+ },
+ "audit_log": {
+  "columns": [
+   {
+    "name": "action",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "actor_name",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "entity_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "entity_type",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "metadata",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "summary",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "token_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX audit_user_created_idx ON audit_log(user_id, created_at, id)"
+  ]
+ },
+ "rate_limits": {
+  "columns": [
+   {
+    "name": "expires_at",
+    "type": "BIGINT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "hits",
+    "type": "BIGINT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "key",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX rate_limits_expires_idx ON rate_limits(expires_at)"
+  ]
+ },
+ "oauth_grants": {
+  "columns": [
+   {
+    "name": "approver_token_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "client_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "code_challenge",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "code_hash",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "expires_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "interval_seconds",
+    "type": "BIGINT",
+    "notnull": true,
+    "default": "0",
+    "pk": false
+   },
+   {
+    "name": "kind",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "last_polled_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "redirect_uri",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "requested_from",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "resource",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "scopes",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "status",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "user_code_hash",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX oauth_grants_expires_idx ON oauth_grants(expires_at)"
+  ]
+ },
+ "oauth_clients": {
+  "columns": [
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "expires_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "last_used_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "name",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "redirect_uris",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "source",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": []
+ },
+ "oauth_refresh_tokens": {
+  "columns": [
+   {
+    "name": "absolute_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "client_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "expires_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "family_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "resource",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "revoked_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "scopes",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "token_hash",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "used_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX oauth_refresh_family_idx ON oauth_refresh_tokens(family_id)"
+  ]
+ },
+ "webauthn_credentials": {
+  "columns": [
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "credential",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "last_used_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "name",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX webauthn_credentials_user_idx ON webauthn_credentials(user_id, created_at)"
+  ]
+ },
+ "webauthn_challenges": {
+  "columns": [
+   {
+    "name": "expires_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "kind",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "session",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "used_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX webauthn_challenges_expires_idx ON webauthn_challenges(expires_at)"
+  ]
+ }
+}
