@@ -1,0 +1,254 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* Tailwind does not scan node_modules: point it at the classes this package uses. */
+@source "./";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-display);
+  --font-display: "Outfit Variable", "Avenir Next", system-ui, sans-serif;
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, Menlo, monospace;
+  --color-brand-forest: var(--brand-forest);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-gold: var(--brand-gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-piece: var(--piece);
+  --color-piece-foreground: var(--piece-foreground);
+  --color-negative: var(--negative);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 16px;
+  --radius-pill: 999px;
+}
+
+/* Design tokens. An app overrides any of these after importing this file. */
+:root {
+  --background: #F6F6F4;
+  --foreground: #141615;
+  --card: #FFFFFF;
+  --card-foreground: #141615;
+  --popover: #FFFFFF;
+  --popover-foreground: #141615;
+  --primary: #141615;
+  --primary-foreground: #FFFFFF;
+  --secondary: #ECECE8;
+  --secondary-foreground: #141615;
+  --muted: #ECECE8;
+  --muted-foreground: #5D615E;
+  --accent: #ECECE8;
+  --accent-foreground: #141615;
+  /* Softer than the old #B42318; still 4.5:1 as text on background, card, muted and its own /10 tint. */
+  --destructive: #A3433C;
+  --border: #DCDCD6;
+  --input: #8A8E8A;
+  --ring: #173A2E;
+  --brand-forest: #173A2E;
+  --brand-cream: #F3EEDF;
+  --brand-gold: #E8C547;
+  --gold-ink: #7A5D00;
+  /* Filled pieces of the progress mark, round pies and stage segments. */
+  --piece: #141615;
+  --piece-foreground: #FFFFFF;
+  /* A stopped application's piece: pastel red, 3:1 on background and card. */
+  --negative: #CC645B;
+  --chart-1: #8A8E8A;
+  --chart-2: #5D615E;
+  --chart-3: #3A3D3B;
+  --chart-4: #22231F;
+  --chart-5: #141615;
+  --radius: 0.625rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #141615;
+  --sidebar-primary: #141615;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #ECECE8;
+  --sidebar-accent-foreground: #141615;
+  --sidebar-border: #DCDCD6;
+  --sidebar-ring: #173A2E;
+}
+
+.dark {
+  --background: #0E0F0F;
+  --foreground: #F1F1EE;
+  --card: #161817;
+  --card-foreground: #F1F1EE;
+  --popover: #161817;
+  --popover-foreground: #F1F1EE;
+  --primary: #F1F1EE;
+  --primary-foreground: #141615;
+  --secondary: #1F2120;
+  --secondary-foreground: #F1F1EE;
+  --muted: #1F2120;
+  --muted-foreground: #A3A7A4;
+  --accent: #1F2120;
+  --accent-foreground: #F1F1EE;
+  --destructive: #F0A39C;
+  --border: #2E312F;
+  --input: #6B706C;
+  --ring: #F1F1EE;
+  --brand-forest: #1F4D3D;
+  --brand-cream: #F3EEDF;
+  --brand-gold: #E8C547;
+  --gold-ink: #E8C547;
+  /* Grey rather than near-white, so filled pieces sit back from the text. */
+  --piece: #9AA09B;
+  --piece-foreground: #141615;
+  --negative: #D4877F;
+  --chart-1: #6B706C;
+  --chart-2: #A3A7A4;
+  --chart-3: #C5C8C5;
+  --chart-4: #E0E2E0;
+  --chart-5: #F1F1EE;
+  --sidebar: #161817;
+  --sidebar-foreground: #F1F1EE;
+  --sidebar-primary: #F1F1EE;
+  --sidebar-primary-foreground: #141615;
+  --sidebar-accent: #1F2120;
+  --sidebar-accent-foreground: #F1F1EE;
+  --sidebar-border: #2E312F;
+  --sidebar-ring: #F1F1EE;
+}
+
+/* Landing carousel: the active scene's progress underline. */
+/* The tour welcome: stops pop, the line draws between them, the pole grows and the flag unfurls. */
+@keyframes tour-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes tour-pop {
+  from {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes tour-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes tour-unfurl {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Start page, feed emptied: the tick draws on, the die rolls in and settles. */
+@keyframes draw-tick {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes roll-in {
+  from { transform: translateX(-70px) rotate(-300deg); opacity: 0; }
+  30% { opacity: 1; }
+  to { transform: none; }
+}
+
+/* Site footer: the heart beats twice, then rests. */
+@keyframes heartbeat {
+  0%, 40%, 100% { transform: scale(1); }
+  10%, 30% { transform: scale(1.25); }
+  20% { transform: scale(1.05); }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+}
+
+/* Settings › Motion › Reduced. */
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* What a jump lands on: an amber outline that breathes until you hover it. */
+@keyframes marked-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1.5px rgb(245 158 11 / 0.9),
+      0 0 10px 1px rgb(245 158 11 / 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px rgb(245 158 11 / 0.6),
+      0 0 18px 4px rgb(245 158 11 / 0.15);
+  }
+}
+.marked-glow {
+  box-shadow: 0 0 0 1.5px rgb(245 158 11 / 0.9);
+  animation: marked-glow 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marked-glow {
+    animation: none;
+  }
+}
