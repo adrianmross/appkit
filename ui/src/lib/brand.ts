@@ -33,6 +33,8 @@ export type Brand = {
   footer?: ReactNode
   /** Drawn beside a failed sign-in step, in place of the default icon. */
   failArt?: ReactNode
+  /** Follows the first sentence of the API tokens panel, for what is particular to the app's tokens. */
+  tokensNote?: ReactNode
 }
 
 let current: Brand = {
