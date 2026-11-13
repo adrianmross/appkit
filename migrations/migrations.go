@@ -104,6 +104,26 @@ var All = []ratchet.Migration{{
 
 		// One replica at a time holds a named lease, for work only one of
 		// them should do, such as a periodic sweep.
+		// The activity feed. An event names its subject by type and id, with
+		// no foreign key, and keeps what is particular to its kind in data, a
+		// JSON object.
+		`CREATE TABLE IF NOT EXISTS events (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES users(id),
+			subject_type TEXT NOT NULL,
+			subject_id TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			data TEXT NOT NULL DEFAULT '{}',
+			title TEXT NOT NULL DEFAULT '',
+			body TEXT NOT NULL DEFAULT '',
+			occurred_at TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			actor_token_id TEXT NOT NULL DEFAULT '',
+			actor_name TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE INDEX IF NOT EXISTS events_subject_idx ON events(subject_type, subject_id, occurred_at, id)`,
+		`CREATE INDEX IF NOT EXISTS events_user_idx ON events(user_id, occurred_at, id)`,
+
 		`CREATE TABLE IF NOT EXISTS leader_leases (
 			name TEXT PRIMARY KEY,
 			owner TEXT NOT NULL,

@@ -1,0 +1,122 @@
+// Package events is the activity feed: one row per thing that happened to
+// one of a user's records. An event names its subject by type and id and
+// keeps what is particular to its kind in Data, a JSON object the app owns.
+package events
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"time"
+
+	"github.com/adrianmross/appkit/actor"
+	"github.com/adrianmross/appkit/apperr"
+	"github.com/adrianmross/appkit/sqldb"
+)
+
+type Event struct {
+	ID          string          `json:"id"`
+	UserID      string          `json:"-"`
+	SubjectType string          `json:"subject_type"`
+	SubjectID   string          `json:"subject_id"`
+	Kind        string          `json:"kind"`
+	Data        json.RawMessage `json:"data"`
+	Title       string          `json:"title"`
+	Body        string          `json:"body"`
+	OccurredAt  time.Time       `json:"occurred_at"`
+	CreatedAt   time.Time       `json:"created_at"`
+	Actor       actor.ActorRef  `json:"actor"`
+}
+
+// Store reads and writes the events table of the platform migration set.
+type Store struct{ DB *sqldb.DB }
+
+const cols = `id, user_id, subject_type, subject_id, kind, data, title, body, occurred_at, created_at, actor_token_id, actor_name`
+
+func (s Store) Create(ctx context.Context, e Event) error {
+	data := string(e.Data)
+	if data == "" {
+		data = "{}"
+	}
+	_, err := s.DB.Exec(ctx, `INSERT INTO events (`+cols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.ID, e.UserID, e.SubjectType, e.SubjectID, e.Kind, data, e.Title, e.Body,
+		sqldb.FormatTime(e.OccurredAt), sqldb.FormatTime(e.CreatedAt), e.Actor.TokenID, e.Actor.Name)
+	return err
+}
+
+func (s Store) Get(ctx context.Context, userID, id string) (Event, error) {
+	e, err := scan(s.DB.QueryRow(ctx, `SELECT `+cols+` FROM events WHERE user_id=? AND id=?`, userID, id))
+	if err == sql.ErrNoRows {
+		return Event{}, apperr.NotFound("event")
+	}
+	return e, err
+}
+
+// Filter narrows After. The zero value is every event of the user.
+type Filter struct {
+	SubjectType string
+	SubjectID   string
+	// AfterTime and AfterID are the occurred_at and id of the last event
+	// the caller has seen.
+	AfterTime time.Time
+	AfterID   string
+	// Limit defaults to 50.
+	Limit int
+}
+
+// After lists a user's events oldest first, which is the order a feed
+// follows them in.
+// ponytail: no sort choice and no total; the app's own list endpoint adds
+// those if it needs them.
+func (s Store) After(ctx context.Context, userID string, f Filter) ([]Event, error) {
+	q, args := `SELECT `+cols+` FROM events WHERE user_id=?`, []any{userID}
+	if f.SubjectType != "" {
+		q, args = q+` AND subject_type=?`, append(args, f.SubjectType)
+	}
+	if f.SubjectID != "" {
+		q, args = q+` AND subject_id=?`, append(args, f.SubjectID)
+	}
+	if !f.AfterTime.IsZero() {
+		at := sqldb.FormatTime(f.AfterTime)
+		q, args = q+` AND (occurred_at > ? OR (occurred_at = ? AND id > ?))`, append(args, at, at, f.AfterID)
+	}
+	if f.Limit <= 0 {
+		f.Limit = 50
+	}
+	rows, err := s.DB.Query(ctx, q+` ORDER BY occurred_at, id LIMIT ?`, append(args, f.Limit)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Event{}
+	for rows.Next() {
+		e, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// DeleteSubject removes a record's events. Nothing cascades to them, so the
+// app calls this in the transaction that deletes the record.
+func (s Store) DeleteSubject(ctx context.Context, userID, subjectType, subjectID string) error {
+	_, err := s.DB.Exec(ctx, `DELETE FROM events WHERE user_id=? AND subject_type=? AND subject_id=?`, userID, subjectType, subjectID)
+	return err
+}
+
+func scan(row interface{ Scan(...any) error }) (Event, error) {
+	var e Event
+	var data, occurred, created string
+	err := row.Scan(&e.ID, &e.UserID, &e.SubjectType, &e.SubjectID, &e.Kind, &data, &e.Title, &e.Body, &occurred, &created, &e.Actor.TokenID, &e.Actor.Name)
+	if err != nil {
+		return Event{}, err
+	}
+	e.Data = json.RawMessage(data)
+	if e.OccurredAt, err = sqldb.ParseTime(occurred); err != nil {
+		return Event{}, err
+	}
+	e.CreatedAt, err = sqldb.ParseTime(created)
+	return e, err
+}

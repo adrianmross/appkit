@@ -260,3 +260,28 @@ func IsFK(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "foreign key")
 }
+
+// TimeLayout is how times are stored in TEXT columns: UTC and fixed width,
+// so they sort as strings.
+const TimeLayout = "2006-01-02T15:04:05.000000000Z"
+
+// FormatTime is t in TimeLayout, or "" for the zero time.
+func FormatTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(TimeLayout)
+}
+
+// ParseTime reads a stored time; "" is the zero time.
+func ParseTime(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+	for _, layout := range []string{TimeLayout, time.RFC3339Nano} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid time %q", s)
+}

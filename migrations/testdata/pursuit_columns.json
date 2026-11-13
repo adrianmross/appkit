@@ -366,6 +366,98 @@
   ],
   "indexes": []
  },
+ "events": {
+  "columns": [
+   {
+    "name": "actor_name",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "actor_token_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "body",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "created_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "data",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "'{}'",
+    "pk": false
+   },
+   {
+    "name": "id",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": true
+   },
+   {
+    "name": "kind",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "occurred_at",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "subject_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "subject_type",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   },
+   {
+    "name": "title",
+    "type": "TEXT",
+    "notnull": true,
+    "default": "''",
+    "pk": false
+   },
+   {
+    "name": "user_id",
+    "type": "TEXT",
+    "notnull": true,
+    "default": null,
+    "pk": false
+   }
+  ],
+  "indexes": [
+   "CREATE INDEX events_subject_idx ON events(subject_type, subject_id, occurred_at, id)",
+   "CREATE INDEX events_user_idx ON events(user_id, occurred_at, id)"
+  ]
+ },
  "oauth_grants": {
   "columns": [
    {
