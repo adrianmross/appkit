@@ -1,6 +1,6 @@
 {
   "name": "@adrianmross/appkit-ui",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The dashboard pieces every appkit app shares: sign-in, settings, the app shell, the live feed and the shadcn components under them.",
   "license": "MIT",
   "type": "module",
