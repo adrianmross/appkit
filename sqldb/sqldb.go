@@ -115,8 +115,23 @@ func LockTx(ctx context.Context, tx *sql.Tx, key int64) error {
 }
 
 // WithLock holds the database-wide lock for fn. Both dialects run the
-// callback inside one transaction.
+// callback inside one transaction. Inside a transaction the context already
+// carries, it takes the lock there, and the lock lasts until that
+// transaction ends.
 func (d *DB) WithLock(ctx context.Context, fn func(context.Context) error) error {
+	if tx, ok := ctx.Value(keyTx).(*sql.Tx); ok {
+		if d.Dialect == "postgres" {
+			if err := LockTx(ctx, tx, d.LockKey); err != nil {
+				return err
+			}
+		}
+		// ponytail: SQLite takes its one write lock at the transaction's
+		// first write, not here.
+		return fn(ctx)
+	}
+	if ctx.Value(keyConn) != nil {
+		return fn(ctx)
+	}
 	if d.Dialect == "postgres" {
 		tx, err := d.SQL.BeginTx(ctx, nil)
 		if err != nil {

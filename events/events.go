@@ -58,6 +58,8 @@ func (s Store) Get(ctx context.Context, userID, id string) (Event, error) {
 type Filter struct {
 	SubjectType string
 	SubjectID   string
+	// Kinds keeps only events of these kinds; empty keeps all.
+	Kinds []string
 	// AfterTime and AfterID are the occurred_at and id of the last event
 	// the caller has seen.
 	AfterTime time.Time
@@ -66,22 +68,34 @@ type Filter struct {
 	Limit int
 }
 
+func (f Filter) where(userID string) (string, []any) {
+	where, args := ` WHERE user_id=?`, []any{userID}
+	if f.SubjectType != "" {
+		where, args = where+` AND subject_type=?`, append(args, f.SubjectType)
+	}
+	if f.SubjectID != "" {
+		where, args = where+` AND subject_id=?`, append(args, f.SubjectID)
+	}
+	if !f.AfterTime.IsZero() {
+		at := sqldb.FormatTime(f.AfterTime)
+		where, args = where+` AND (occurred_at > ? OR (occurred_at = ? AND id > ?))`, append(args, at, at, f.AfterID)
+	}
+	if len(f.Kinds) > 0 {
+		where += ` AND kind IN (?` + strings.Repeat(`, ?`, len(f.Kinds)-1) + `)`
+		for _, k := range f.Kinds {
+			args = append(args, k)
+		}
+	}
+	return where, args
+}
+
 // After lists a user's events oldest first, which is the order a feed
 // follows them in.
 // ponytail: no sort choice and no total; the app's own list endpoint adds
 // those if it needs them.
 func (s Store) After(ctx context.Context, userID string, f Filter) ([]Event, error) {
-	q, args := `SELECT `+cols+` FROM events WHERE user_id=?`, []any{userID}
-	if f.SubjectType != "" {
-		q, args = q+` AND subject_type=?`, append(args, f.SubjectType)
-	}
-	if f.SubjectID != "" {
-		q, args = q+` AND subject_id=?`, append(args, f.SubjectID)
-	}
-	if !f.AfterTime.IsZero() {
-		at := sqldb.FormatTime(f.AfterTime)
-		q, args = q+` AND (occurred_at > ? OR (occurred_at = ? AND id > ?))`, append(args, at, at, f.AfterID)
-	}
+	where, args := f.where(userID)
+	q := `SELECT ` + cols + ` FROM events` + where
 	if f.Limit <= 0 {
 		f.Limit = 50
 	}
@@ -131,17 +145,7 @@ func (s Store) List(ctx context.Context, userID string, f Filter, r paging.Reque
 	if err != nil {
 		return paging.Page[Event]{}, err
 	}
-	where, args := ` WHERE user_id=?`, []any{userID}
-	if f.SubjectType != "" {
-		where, args = where+` AND subject_type=?`, append(args, f.SubjectType)
-	}
-	if f.SubjectID != "" {
-		where, args = where+` AND subject_id=?`, append(args, f.SubjectID)
-	}
-	if !f.AfterTime.IsZero() {
-		at := sqldb.FormatTime(f.AfterTime)
-		where, args = where+` AND (occurred_at > ? OR (occurred_at = ? AND id > ?))`, append(args, at, at, f.AfterID)
-	}
+	where, args := f.where(userID)
 	var total int
 	if err := s.DB.QueryRow(ctx, `SELECT COUNT(*) FROM events`+where, args...).Scan(&total); err != nil {
 		return paging.Page[Event]{}, err
