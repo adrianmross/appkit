@@ -102,6 +102,14 @@ var All = []ratchet.Migration{{
 		)`,
 		`CREATE INDEX IF NOT EXISTS rate_limits_expires_idx ON rate_limits(expires_at)`,
 
+		// One replica at a time holds a named lease, for work only one of
+		// them should do, such as a periodic sweep.
+		`CREATE TABLE IF NOT EXISTS leader_leases (
+			name TEXT PRIMARY KEY,
+			owner TEXT NOT NULL,
+			lease_until TEXT NOT NULL
+		)`,
+
 		// OAuth grants. kind is code (loopback + PKCE) or device. Codes are
 		// stored as SHA-256 hashes only.
 		`CREATE TABLE IF NOT EXISTS oauth_grants (

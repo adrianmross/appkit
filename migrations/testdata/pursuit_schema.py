@@ -13,7 +13,7 @@ import sqlite3
 import sys
 
 TABLES = [
-    "users", "api_tokens", "idempotency_keys", "audit_log", "rate_limits",
+    "users", "api_tokens", "idempotency_keys", "audit_log", "rate_limits", "leader_leases",
     "oauth_grants", "oauth_clients", "oauth_refresh_tokens",
     "webauthn_credentials", "webauthn_challenges",
 ]
