@@ -145,6 +145,14 @@ func ProjectBytes(b []byte, fields []string) ([]byte, error) {
 }
 
 func projectValue(v any, fields []string) any {
+	if list, ok := v.([]any); ok {
+		for i, item := range list {
+			if im, ok := item.(map[string]any); ok {
+				list[i] = pick(im, fields)
+			}
+		}
+		return list
+	}
 	m, ok := v.(map[string]any)
 	if !ok {
 		return v

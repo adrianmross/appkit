@@ -57,6 +57,9 @@ func TestFeed(t *testing.T) {
 	if got := ids(Filter{AfterTime: day(2), AfterID: "e2"}); got != "e3 " {
 		t.Fatalf("after e2: %q", got)
 	}
+	if got := ids(Filter{Kinds: []string{"toured", "nope"}}); got != "e3 " {
+		t.Fatalf("kinds: %q", got)
+	}
 	if got := ids(Filter{SubjectType: "listing", SubjectID: "l1"}); got != "e1 e3 " {
 		t.Fatalf("subject: %q", got)
 	}

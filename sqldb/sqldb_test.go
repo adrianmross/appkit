@@ -36,6 +36,13 @@ func TestTxAndRebind(t *testing.T) {
 	if err := db.WithLock(ctx, func(ctx context.Context) error { return db.WithTx(ctx, insert) }); err != nil {
 		t.Fatal(err)
 	}
+	// The lock inside a transaction joins it, so a rollback takes the write too.
+	_ = db.WithTx(ctx, func(ctx context.Context) error {
+		if err := db.WithLock(ctx, insert); err != nil {
+			t.Fatal(err)
+		}
+		return boom
+	})
 	var n int
 	if err := db.QueryRow(ctx, `SELECT COUNT(*) FROM t`).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("rows = %d %v, want 2 (plain and locked)", n, err)

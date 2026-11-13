@@ -8,6 +8,7 @@ func TestProjectBytes(t *testing.T) {
 		`{"id":"a","name":"n","x":1}`:                         `{"id":"a"}`,
 		`{"data":[{"id":"a","x":1}],"page":{"total":1}}`:      `{"data":[{"id":"a"}],"page":{"total":1}}`,
 		`{"data":[{"id":"a","x":1}],"id":"b","other":"kept"}`: `{"id":"b"}`,
+		`[{"id":"a","x":1},{"id":"b"}]`:                       `[{"id":"a"},{"id":"b"}]`,
 	} {
 		got, err := ProjectBytes([]byte(in), []string{"id"})
 		if err != nil || string(got) != want {
