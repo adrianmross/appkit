@@ -377,6 +377,11 @@ func (a *Accounts) CreateToken(ctx context.Context, in TokenInput) (IssuedToken,
 	if err != nil {
 		return IssuedToken{}, err
 	}
+	// A token is a dashboard sign-in because of its name, so nobody may
+	// choose that name for an API token and get a sign-in's lifetimes.
+	if name == LoginName {
+		return IssuedToken{}, apperr.Validation("the name %q is reserved", LoginName).WithHint("pick another name")
+	}
 	scopes, err := a.normalizeScopes(in.Scopes)
 	if err != nil {
 		return IssuedToken{}, err
