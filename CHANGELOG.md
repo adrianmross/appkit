@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/adrianmross/appkit/compare/v0.1.0...v0.2.0) (2026-11-13)
+
+
+### Features
+
+* **account:** add users, tokens, sign-in sessions, the audit log and their routes ([#8](https://github.com/adrianmross/appkit/issues/8)) ([484120d](https://github.com/adrianmross/appkit/commit/484120d69d52e0410e2b661f7ef9274a942ca8d7))
+* **ui:** attach the package to each release and export the shadcn components by file ([#6](https://github.com/adrianmross/appkit/issues/6)) ([912d889](https://github.com/adrianmross/appkit/commit/912d889932cb1b3989ef2a4082a89b9cdaece929))
+
 ## 0.1.0 (2026-11-13)
 
 
