@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/adrianmross/appkit/compare/v0.2.0...v0.2.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* take the lock inside an open transaction, project top-level arrays, and filter events by kind ([#9](https://github.com/adrianmross/appkit/issues/9)) ([a1cc13a](https://github.com/adrianmross/appkit/commit/a1cc13a586dc248ac2ffcefa6c0ede71a1f18b33))
+
 ## [0.2.0](https://github.com/adrianmross/appkit/compare/v0.1.0...v0.2.0) (2026-11-13)
 
 
