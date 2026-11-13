@@ -13,6 +13,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
+    "./ui/*": "./src/components/ui/*.tsx",
     "./theme.css": "./src/theme.css"
   },
   "scripts": {
