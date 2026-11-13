@@ -8,6 +8,8 @@ export type Brand = {
   name: string
   /** Used inside sentences: "Sign in the Acme CLI?". */
   shortName: string
+  /** What the user's records are called, inside a sentence: "keeps your applications". */
+  records: string
   /** Prefix of localStorage keys (`slug.token`) and cookies (`slug_token`). */
   slug: string
   /** The CLI binary, for commands the dashboard shows. */
@@ -36,6 +38,7 @@ export type Brand = {
 let current: Brand = {
   name: "App",
   shortName: "App",
+  records: "data",
   slug: "app",
   cli: "app",
   envPrefix: "APP",
