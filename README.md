@@ -17,6 +17,7 @@ It builds on three small libraries: [ratchet](https://github.com/adrianmross/rat
 | `session` | API token checks, dashboard sign-ins with idle and absolute lifetimes, the session cookie and the request gate |
 | `httpx` | JSON request and response helpers, request tracing, CORS, and writes with dry run and `Idempotency-Key` replay |
 | `sqldb` | Postgres or SQLite behind one query style: `?` placeholders, a transaction in the context, one database-wide lock |
+| `account` | users, API tokens, dashboard sign-in, the audit log, and the HTTP routes for them (`/v1/me`, `/v1/tokens`, `/v1/audit`, `/v1/events`, `/v1/auth/session`) |
 | `events` | the activity feed: events about a subject, with JSON data the app owns |
 | `cli` | the command line framework: commands as data, `schema`, `--help --json`, field projection and exit codes |
 | `migrations` | the schema of the platform tables, as a ratchet set named `appkit` |
