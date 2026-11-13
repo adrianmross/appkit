@@ -7,10 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/adrianmross/appkit/actor"
 	"github.com/adrianmross/appkit/apperr"
+	"github.com/adrianmross/appkit/paging"
 	"github.com/adrianmross/appkit/sqldb"
 )
 
@@ -119,4 +121,55 @@ func scan(row interface{ Scan(...any) error }) (Event, error) {
 	}
 	e.CreatedAt, err = sqldb.ParseTime(created)
 	return e, err
+}
+
+// List pages a user's events, newest first unless the request sorts
+// otherwise (occurred_at or created_at). The filter's After fields apply
+// too, which is how a feed asks for what came after the last event it saw.
+func (s Store) List(ctx context.Context, userID string, f Filter, r paging.Request) (paging.Page[Event], error) {
+	expr, desc, err := r.Order(map[string]string{"occurred_at": "occurred_at", "created_at": "created_at"}, "-occurred_at")
+	if err != nil {
+		return paging.Page[Event]{}, err
+	}
+	where, args := ` WHERE user_id=?`, []any{userID}
+	if f.SubjectType != "" {
+		where, args = where+` AND subject_type=?`, append(args, f.SubjectType)
+	}
+	if f.SubjectID != "" {
+		where, args = where+` AND subject_id=?`, append(args, f.SubjectID)
+	}
+	if !f.AfterTime.IsZero() {
+		at := sqldb.FormatTime(f.AfterTime)
+		where, args = where+` AND (occurred_at > ? OR (occurred_at = ? AND id > ?))`, append(args, at, at, f.AfterID)
+	}
+	var total int
+	if err := s.DB.QueryRow(ctx, `SELECT COUNT(*) FROM events`+where, args...).Scan(&total); err != nil {
+		return paging.Page[Event]{}, err
+	}
+	if c := r.Cursor; c != nil && c.ID != "" {
+		where, args = where+` AND `+paging.CursorSQL(expr, "id", desc), append(args, c.K, c.K, c.ID)
+	}
+	rows, err := s.DB.Query(ctx, `SELECT `+cols+` FROM events`+where+` `+paging.OrderSQL(expr, "id", desc)+` LIMIT ?`, append(args, r.Limit+1)...)
+	if err != nil {
+		return paging.Page[Event]{}, err
+	}
+	defer rows.Close()
+	var out []Event
+	for rows.Next() {
+		e, err := scan(rows)
+		if err != nil {
+			return paging.Page[Event]{}, err
+		}
+		out = append(out, e)
+	}
+	if err := rows.Err(); err != nil {
+		return paging.Page[Event]{}, err
+	}
+	created := strings.HasSuffix(r.Sort, "created_at")
+	return paging.Finish(r, out, total, func(e Event) string {
+		if created {
+			return sqldb.FormatTime(e.CreatedAt)
+		}
+		return sqldb.FormatTime(e.OccurredAt)
+	}, func(e Event) string { return e.ID }), nil
 }
