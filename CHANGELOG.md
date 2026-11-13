@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/adrianmross/appkit/compare/v0.2.1...v0.2.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* **ui:** lay the sign-in failure art beside the message, name the app's records in the account hint, and export the tour types ([#11](https://github.com/adrianmross/appkit/issues/11)) ([18a0b02](https://github.com/adrianmross/appkit/commit/18a0b0257d69c78e164a86cb7548a96148aa86eb))
+* **ui:** take what is particular to an app's tokens from the brand instead of naming an extension and an approve scope ([#13](https://github.com/adrianmross/appkit/issues/13)) ([7eacc89](https://github.com/adrianmross/appkit/commit/7eacc897085d9f440ffac8d3fdc159391fd57292))
+
 ## [0.2.1](https://github.com/adrianmross/appkit/compare/v0.2.0...v0.2.1) (2026-11-13)
 
 
