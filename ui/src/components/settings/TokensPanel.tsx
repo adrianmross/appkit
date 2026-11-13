@@ -150,9 +150,7 @@ export function TokensPanel() {
       <FieldSet>
         <FieldLegend>New token</FieldLegend>
         <FieldDescription>
-          Tokens let the <code>{brand().cli}</code> CLI, agents, and the browser extension call the API as you. This form makes
-          read and write tokens. An approve token can only be created through <code>POST /v1/tokens</code> by a signed-in
-          human who holds approve, never by an agent.
+          Tokens let the <code>{brand().cli}</code> CLI and agents call the API as you. {brand().tokensNote}
         </FieldDescription>
         <FieldGroup>
           <Field>
@@ -215,7 +213,7 @@ export function TokensPanel() {
                 <KeyRound />
               </EmptyMedia>
               <EmptyTitle>No active tokens</EmptyTitle>
-              <EmptyDescription>Generate one above to use the CLI, an agent, or the browser extension.</EmptyDescription>
+              <EmptyDescription>Generate one above to use the CLI or an agent.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
