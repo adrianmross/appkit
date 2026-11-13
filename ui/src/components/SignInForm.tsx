@@ -23,8 +23,8 @@ import { Fingerprint } from "lucide-react"
 function FailNote({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
     <Alert variant="destructive" className={cn("items-center", className)}>
-      {/* size-auto opts out of the Alert's size-4 icon rule so the art keeps its width. */}
-      {brand().failArt && <span className="size-auto w-11 shrink-0">{brand().failArt}</span>}
+      {/* A direct child, so the Alert lays it out beside the message; the art sets its own size. */}
+      {brand().failArt}
       <AlertTitle>{children}</AlertTitle>
     </Alert>
   )

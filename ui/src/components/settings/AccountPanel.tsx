@@ -63,7 +63,7 @@ function ProfileCard({ mode }: { mode: Mode }) {
     mode === "proxy"
       ? "The platform in front of this server signs you in, so this is only how you're shown."
       : mode === "account"
-        ? `Your sign-in email. ${brand().shortName} keeps your data under this address, so it can't be changed here.`
+        ? `Your sign-in email. ${brand().shortName} keeps your ${brand().records} under this address, so it can't be changed here.`
         : `The email on this ${brand().shortName} account. It can't be changed from the dashboard.`
 
   return (
