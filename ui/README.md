@@ -43,6 +43,24 @@ Two entry points:
 
 Build-time switches the package reads directly: `NEXT_PUBLIC_EXPORT_MODE=1` (static export served by the Go binary), `NEXT_PUBLIC_NEON_AUTH_URL`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
 
+## Installing
+
+The package is not on a registry. Every appkit release carries it as `appkit-ui.tgz`, and the app depends on that URL:
+
+```json
+"@adrianmross/appkit-ui": "https://github.com/adrianmross/appkit/releases/download/v0.2.0/appkit-ui.tgz"
+```
+
+## The shadcn layer
+
+The shadcn components sit apart from the rest, under `src/components/ui`, and nothing in them knows about appkit. Import one by file, as in a shadcn project:
+
+```ts
+import { Button } from "@adrianmross/appkit-ui/ui/button"
+```
+
+The package root exports them too. To refresh one from shadcn, replace its file; the appkit components only use their public props.
+
 ## What the app supplies
 
 The shell and the pieces around it take the app's parts as props, and three registries take the rest at module scope (call them in the same module as `configure`):

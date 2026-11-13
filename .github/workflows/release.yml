@@ -13,6 +13,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # The UI package is not on a registry. Each release carries it as a
+      # tarball, and an app depends on that URL.
+      - uses: actions/checkout@v4
+        if: steps.release.outputs.release_created
+      - uses: actions/setup-node@v4
+        if: steps.release.outputs.release_created
+        with:
+          node-version: 22
+      - name: Attach the UI package
+        if: steps.release.outputs.release_created
+        working-directory: ui
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          npm pack
+          mv adrianmross-appkit-ui-*.tgz appkit-ui.tgz
+          gh release upload "$TAG" appkit-ui.tgz
