@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/adrianmross/appkit/compare/v0.2.2...v0.2.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **ui:** accept quoted search values, tie settings labels to their controls, and add a cursor pager ([#14](https://github.com/adrianmross/appkit/issues/14)) ([61ed2d4](https://github.com/adrianmross/appkit/commit/61ed2d440ca9e1d64e7632901c624553eea1e51e))
+
 ## [0.2.2](https://github.com/adrianmross/appkit/compare/v0.2.1...v0.2.2) (2026-11-13)
 
 
