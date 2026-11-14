@@ -72,7 +72,8 @@ The shell and the pieces around it take the app's parts as props, and three regi
 | `CommandPalette` | `groups`; settings sections and Sign out are added |
 | `LiveProvider` | `enrich(events)`, to attach what the app shows about each event's subject |
 | `NotificationBell` | `text` (`describe`, `href`, `meta`) and an optional first tab |
-| `SearchBox` | a `SearchSource`: the list page, the qualifiers and how each matches, how to load and show rows |
+| `SearchBox` | a `SearchSource`: the list page, the qualifiers (with `match` only when rows are filtered in the browser), how to load and show rows. A value with a space is typed in quotes: `hood:"Logan Circle"` |
+| `CursorPager` | whether there is a previous and a next page, and what to do for each |
 | `StatusBadge` | a `statuses` map of label and tone |
 | `Tour` | `steps` and the `welcome` text |
 | `registerPrefs` | the app's preferences and their defaults |

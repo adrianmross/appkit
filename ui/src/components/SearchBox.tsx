@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 // @ts-ignore command-score ships no types, and the app compiling this source has no declaration for it
 import untypedScore from "command-score"
 import { Search } from "lucide-react"
-import { matchesQualifiers, parseSearch, tokenAt, tokenize, type Qualifier, type SearchToken } from "../lib/search"
+import { matchesQualifiers, parseSearch, quoteValue, tokenAt, tokenize, type Qualifier, type SearchToken } from "../lib/search"
 import { getPref } from "../lib/settings"
 import { cn } from "../lib/utils"
 import { Input } from "./ui/input"
@@ -89,13 +89,15 @@ export function SearchBox<Row>({ source, placeholder, onBlurEmpty }: { source: S
       const others = parseSearch(value.slice(0, tok.start) + " " + value.slice(tok.end), keys).qualifiers
       const pool = others.length ? rows.filter((r) => matchesQualifiers(r, others, defs)) : rows
       out.push(
-        ...(def.values?.(m[2], pool) ?? [])
+        ...(def.values?.(m[2].replace(/"/g, ""), pool) ?? [])
           .map(({ value: v, hint }): Item => {
-            const apply = `${def.key}:${v}`
-            return { id: def.key + v, group: def.key, text: v, hint, apply, count: pool.filter((r) => matchesQualifiers(r, parseSearch(apply, keys).qualifiers, defs)).length }
+            const apply = `${def.key}:${quoteValue(v)}`
+            // Without a match rule the server does the filtering, so there is nothing to count here.
+            const count = def.match ? pool.filter((r) => matchesQualifiers(r, parseSearch(apply, keys).qualifiers, defs)).length : undefined
+            return { id: def.key + v, group: def.key, text: v, hint, apply, count }
           })
-          .filter((item) => item.count! > 0)
-          .sort((a, b) => b.count! - a.count!)
+          .filter((item) => item.count !== 0)
+          .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
           .slice(0, 8),
       )
     } else {

@@ -68,6 +68,22 @@ export function SortHeader({
   )
 }
 
+// Previous and Next under a list read one cursor page at a time. The page
+// keeps the cursors it has walked; `children` is the "Page 2 of 7" text.
+export function CursorPager({ hasPrevious, hasMore, onPrevious, onNext, children }: { hasPrevious: boolean; hasMore: boolean; onPrevious: () => void; onNext: () => void; children?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-end gap-2 text-sm text-muted-foreground">
+      <span className="mr-auto">{children}</span>
+      <Button variant="outline" size="sm" disabled={!hasPrevious} onClick={onPrevious}>
+        Previous
+      </Button>
+      <Button variant="outline" size="sm" disabled={!hasMore} onClick={onNext}>
+        Next
+      </Button>
+    </div>
+  )
+}
+
 // An icon-only row action with its name as the tooltip and the accessible label.
 export function IconAction({
   label: text,

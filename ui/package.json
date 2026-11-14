@@ -18,7 +18,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/lib/brand.test.ts"
+    "test": "node --test --experimental-strip-types src/lib/brand.test.ts src/lib/search.test.ts"
   },
   "peerDependencies": {
     "next": "^16.4.3",
