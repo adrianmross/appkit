@@ -69,14 +69,14 @@ function ThemeCard({ value, current, onPick }: { value: Theme; current: Theme; o
 }
 
 // One labelled setting with its explanation underneath.
-// The label names the row for assistive technology, and when the row holds a
-// single control it is that control's label too (unless the control has its own id).
+// A row holding a single control makes the label that control's label (the
+// control keeps its own id if it has one); otherwise the label names the row.
 export function SettingsRow({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   const id = useId()
   const only = isValidElement<{ id?: string }>(children) ? children : null
   const control = only?.props.id ?? id
   return (
-    <Field aria-labelledby={id + "-label"}>
+    <Field aria-labelledby={only ? undefined : id + "-label"}>
       <FieldLabel id={id + "-label"} htmlFor={only ? control : undefined}>
         {label}
       </FieldLabel>
