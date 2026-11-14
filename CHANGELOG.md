@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/adrianmross/appkit/compare/v0.2.3...v0.2.4) (2026-11-14)
+
+
+### Bug Fixes
+
+* **ui:** name a settings row by its label only when the label is not already its control's ([#16](https://github.com/adrianmross/appkit/issues/16)) ([9d4c894](https://github.com/adrianmross/appkit/commit/9d4c8944df8ea416dd234bdf0d81bbe98244b5dd))
+
 ## [0.2.3](https://github.com/adrianmross/appkit/compare/v0.2.2...v0.2.3) (2026-11-14)
 
 
