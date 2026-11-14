@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react"
+import { cloneElement, isValidElement, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from "react"
 import { History, Keyboard, KeyRound, Palette, Plug, Search, User } from "lucide-react"
 import { getPref, setPref, type Pref, type TextSize } from "../lib/settings"
 import { useShortcuts } from "../lib/keybindings"
@@ -69,11 +69,18 @@ function ThemeCard({ value, current, onPick }: { value: Theme; current: Theme; o
 }
 
 // One labelled setting with its explanation underneath.
+// The label names the row for assistive technology, and when the row holds a
+// single control it is that control's label too (unless the control has its own id).
 export function SettingsRow({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  const id = useId()
+  const only = isValidElement<{ id?: string }>(children) ? children : null
+  const control = only?.props.id ?? id
   return (
-    <Field>
-      <FieldLabel>{label}</FieldLabel>
-      <div className="flex flex-col">{children}</div>
+    <Field aria-labelledby={id + "-label"}>
+      <FieldLabel id={id + "-label"} htmlFor={only ? control : undefined}>
+        {label}
+      </FieldLabel>
+      <div className="flex flex-col">{only ? cloneElement(only, { id: control }) : children}</div>
       {hint && <FieldDescription>{hint}</FieldDescription>}
     </Field>
   )

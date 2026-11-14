@@ -11,12 +11,20 @@ export type Qualifier<Row> = {
   key: string
   /** Shown beside the key in the suggestions: "Applied date, like >2026-01-01". */
   hint: string
-  match: (row: Row, q: SearchQualifier) => boolean
+  /** Whether a loaded row passes, for the suggestions and the counts beside values. Leave it out when the server filters: nothing is counted. */
+  match?: (row: Row, q: SearchQualifier) => boolean
   /** Values to offer for what has been typed after the colon. */
   values?: (partial: string, rows: Row[]) => { value: string; hint?: string }[]
 }
 
 const OPS = [">=", "<=", ">", "<"] as const
+
+// A word ends at whitespace, except inside double quotes: hood:"Logan Circle"
+// is one word. A quote left open runs to the end of the input.
+const WORD = /(?:[^\s"]|"[^"]*"?)+/g
+const unquote = (s: string) => s.replace(/"/g, "")
+/** A qualifier value as it must be typed: quoted when it holds a space. */
+export const quoteValue = (v: string) => (/\s/.test(v) ? `"${v}"` : v)
 
 const syntaxOn = () => getPref("searchSyntax") !== "off"
 
@@ -28,7 +36,7 @@ export function parseSearch(input: string, keys: string[] = []): ParsedSearch {
   if (!syntaxOn()) return { free: input.trim(), qualifiers: [] }
   const qualifiers: SearchQualifier[] = []
   const free: string[] = []
-  for (const token of input.trim().split(/\s+/).filter(Boolean)) {
+  for (const token of input.match(WORD) ?? []) {
     const m = token.match(/^([a-zA-Z_]+):(.*)$/)
     if (!m) {
       free.push(token)
@@ -44,6 +52,7 @@ export function parseSearch(input: string, keys: string[] = []): ParsedSearch {
         break
       }
     }
+    value = unquote(value)
     if (!value) {
       if (!keys.includes(key.toLowerCase())) free.push(token)
       continue
@@ -63,7 +72,7 @@ export function compareText(rowValue: string | undefined, op: SearchQualifier["o
 
 // A qualifier with a key the app doesn't define filters nothing.
 export function matchesQualifiers<Row>(row: Row, qualifiers: SearchQualifier[], defs: Qualifier<Row>[]): boolean {
-  return qualifiers.every((q) => defs.find((d) => d.key === q.key)?.match(row, q) ?? true)
+  return qualifiers.every((q) => defs.find((d) => d.key === q.key)?.match?.(row, q) ?? true)
 }
 
 export type SearchToken = { text: string; kind: "space" | "free" | "key" | "op" | "value" | "unknown" }
@@ -73,8 +82,7 @@ export type SearchToken = { text: string; kind: "space" | "free" | "key" | "op" 
 export function tokenize(input: string, keys: string[] = []): SearchToken[] {
   const syntax = syntaxOn()
   const out: SearchToken[] = []
-  for (const part of input.split(/(\s+)/)) {
-    if (!part) continue
+  for (const part of input.match(new RegExp("\\s+|" + WORD.source, "g")) ?? []) {
     if (/^\s+$/.test(part)) {
       out.push({ text: part, kind: "space" })
       continue
@@ -93,11 +101,10 @@ export function tokenize(input: string, keys: string[] = []): SearchToken[] {
   return out
 }
 
-// The whitespace-delimited word around the caret.
+// The word around the caret, read the way parseSearch splits words.
 export function tokenAt(input: string, caret: number) {
-  let start = caret
-  while (start > 0 && !/\s/.test(input[start - 1])) start--
-  let end = caret
-  while (end < input.length && !/\s/.test(input[end])) end++
-  return { start, end, text: input.slice(start, end) }
+  for (const m of input.matchAll(WORD)) {
+    if (m.index <= caret && caret <= m.index + m[0].length) return { start: m.index, end: m.index + m[0].length, text: m[0] }
+  }
+  return { start: caret, end: caret, text: "" }
 }

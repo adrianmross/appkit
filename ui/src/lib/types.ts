@@ -42,11 +42,11 @@ export type Audit = {
 // is about (subject_type, subject_id) and its payload (data) are the app's,
 // as are any extra top-level fields an older API still sends.
 export type Event = {
-  id?: string
-  kind?: string
+  id: string
+  kind: string
   title?: string
   body?: string
-  occurred_at?: string
+  occurred_at: string
   actor?: { name?: string; token_id?: string }
   subject_type?: string
   subject_id?: string
