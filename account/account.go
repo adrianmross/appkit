@@ -51,9 +51,11 @@ type Accounts struct {
 	Public func(path string) bool
 	// OAuth turns on sign-in for the app's CLI. Nil leaves it off.
 	OAuth *OAuth
-	Log   *slog.Logger
-	Now   func() time.Time
-	NewID func() string
+	// Passkeys turns on WebAuthn sign-in. Nil leaves it off.
+	Passkeys *Passkeys
+	Log      *slog.Logger
+	Now      func() time.Time
+	NewID    func() string
 	// Ready gates /readyz; set it once boot (migrations, bootstrap) is done.
 	Ready atomic.Bool
 }
@@ -114,11 +116,15 @@ func (a *Accounts) Unauthorized() error {
 
 func (a *Accounts) sessions() *session.Manager {
 	idle, max := a.ttl()
-	return &session.Manager{
+	m := &session.Manager{
 		Store: a.Store(), Now: a.now, NewID: a.ID,
-		LoginName: LoginName, IdleTTL: idle, MaxTTL: max,
+		LoginName: LoginName, IdleTTL: idle, MaxTTL: max, StepUpWindow: StepUpWindow,
 		Scopes: a.scopes(), TokenMarker: a.TokenMarker, Unauthorized: a.Unauthorized,
 	}
+	if a.Passkeys != nil {
+		m.HasStepUp = a.hasPasskey
+	}
+	return m
 }
 
 // Authenticate turns a token secret into the actor it stands for.
