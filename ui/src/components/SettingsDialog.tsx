@@ -69,11 +69,14 @@ function ThemeCard({ value, current, onPick }: { value: Theme; current: Theme; o
 }
 
 // One labelled setting with its explanation underneath.
-// A row holding a single control makes the label that control's label (the
-// control keeps its own id if it has one); otherwise the label names the row.
+// What a <label> can point at. Anything else in a row is a group of controls.
+const LABELABLE = new Set<unknown>(["input", "select", "textarea", Input])
+
+// A row holding a single input makes the label that input's label (the
+// input keeps its own id if it has one); otherwise the label names the row.
 export function SettingsRow({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   const id = useId()
-  const only = isValidElement<{ id?: string }>(children) ? children : null
+  const only = isValidElement<{ id?: string }>(children) && LABELABLE.has(children.type) ? children : null
   const control = only?.props.id ?? id
   return (
     <Field aria-labelledby={only ? undefined : id + "-label"}>

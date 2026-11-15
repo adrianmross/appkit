@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
-import { api, EXPORT_MODE } from "../lib/api-client"
+import { api, exportMode } from "../lib/api-client"
 import { useAuth } from "../lib/auth"
 import { authClient } from "../lib/betterauth"
 import { brand } from "../lib/brand"
@@ -440,7 +440,7 @@ function TokenSignIn({ bare = false }: { bare?: boolean }) {
         <CardDescription>Paste the token your server printed on first start, or create one with the CLI.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 pt-0">
-        <CommandBlock command={`${brand().cli} serve\n${brand().cli} tokens create`} />
+        <CommandBlock command={brand().signIn.commands ?? `${brand().cli} serve\n${brand().cli} tokens create`} />
         {(localError || error) && <FailNote>{localError || error}</FailNote>}
         <form onSubmit={onSubmit}>
           <FieldGroup className="gap-4">
@@ -577,7 +577,7 @@ export function SignInForm({
 
   // Export mode has no server to compute this ahead of time — check client-side.
   useEffect(() => {
-    if (!EXPORT_MODE) return
+    if (!exportMode()) return
     api<{ allow_token_login: boolean; demo_available: boolean }>("/v1/auth/providers")
       .then((result) => {
         setAllowTokenLogin(result.allow_token_login)

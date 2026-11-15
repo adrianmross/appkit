@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { EXPORT_MODE } from "../lib/api-client"
+import { exportMode } from "../lib/api-client"
 import { useAuth } from "../lib/auth"
 
 // Hosted build: proxy.ts already redirected unauthenticated requests to
@@ -16,13 +16,13 @@ import { useAuth } from "../lib/auth"
 export function AppGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { me, loading } = useAuth()
-  const anonymous = EXPORT_MODE && !loading && me == null
+  const anonymous = exportMode() && !loading && me == null
 
   useEffect(() => {
     if (anonymous) router.replace("/sign-in")
   }, [anonymous, router])
 
-  if (EXPORT_MODE && loading) return null
+  if (exportMode() && loading) return null
   if (anonymous) return null
   return children
 }

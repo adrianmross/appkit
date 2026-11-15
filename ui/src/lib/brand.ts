@@ -27,8 +27,10 @@ export type Brand = {
   mark: { light: string; dark: string }
   /** What each token scope allows, in the words of the consent screen. A scope not listed shows as its name. */
   scopes: Record<string, string>
-  /** The sign-in page's headline and the line under it. */
-  signIn: { title: string; subtitle: string }
+  /** The sign-in page's headline and the line under it. `commands` are the lines the token card shows for getting a token; by default `<cli> serve` and `<cli> tokens create`. */
+  signIn: { title: string; subtitle: string; commands?: string }
+  /** True for an app that is only ever a static export served by its own API. Unset, NEXT_PUBLIC_EXPORT_MODE=1 decides. */
+  exportMode?: boolean
   /** Rendered under every page that has a footer. */
   footer?: ReactNode
   /** Drawn beside a failed sign-in step, in place of the default icon. */
