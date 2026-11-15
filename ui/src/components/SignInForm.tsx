@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react"
 import Link from "next/link"
-import { api, exportMode } from "../lib/api-client"
+import { api, apiUrl, exportMode } from "../lib/api-client"
 import { useAuth } from "../lib/auth"
 import { authClient } from "../lib/betterauth"
 import { brand } from "../lib/brand"
@@ -497,6 +497,25 @@ function TryDemo() {
 
 // Shown only when the server has passkeys on and the browser can use them.
 // Usernameless: the device offers its passkeys for this site.
+// One button per identity provider the server lists. The round trip is the
+// server's own redirect, so this is for the build the API serves itself.
+function ProviderSignIn() {
+  const [providers, setProviders] = useState<{ name: string; label: string }[]>([])
+
+  useEffect(() => {
+    if (!exportMode()) return
+    api<{ providers?: { name: string; label: string }[] }>("/v1/auth/providers")
+      .then((result) => setProviders(result.providers || []))
+      .catch(() => {})
+  }, [])
+
+  return providers.map((p) => (
+    <Button key={p.name} variant="outline" asChild>
+      <a href={apiUrl(`/v1/auth/${encodeURIComponent(p.name)}/start`)}>Continue with {p.label}</a>
+    </Button>
+  ))
+}
+
 function PasskeySignIn() {
   const { refresh } = useAuth()
   const [enabled, setEnabled] = useState(false)
@@ -587,7 +606,12 @@ export function SignInForm({
   }, [])
 
   // Account sign-in (multi-tenant) leads; the token form is the way in otherwise, and tucks away behind it.
-  const primary = authClient ? <AccountSignIn key={initialMode} initialMode={initialMode} /> : <PasskeySignIn />
+  const primary = authClient ? <AccountSignIn key={initialMode} initialMode={initialMode} /> : (
+    <>
+      <ProviderSignIn />
+      <PasskeySignIn />
+    </>
+  )
   return (
     <div className="relative flex min-h-svh flex-col bg-background text-foreground">
       <ThemeToggle className="absolute top-4 right-4" />
