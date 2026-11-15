@@ -53,9 +53,12 @@ type Accounts struct {
 	OAuth *OAuth
 	// Passkeys turns on WebAuthn sign-in. Nil leaves it off.
 	Passkeys *Passkeys
-	Log      *slog.Logger
-	Now      func() time.Time
-	NewID    func() string
+	// OIDC lets existing users sign in through an identity provider. Nil
+	// leaves it off.
+	OIDC  *OIDC
+	Log   *slog.Logger
+	Now   func() time.Time
+	NewID func() string
 	// Ready gates /readyz; set it once boot (migrations, bootstrap) is done.
 	Ready atomic.Bool
 }

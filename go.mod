@@ -6,9 +6,12 @@ require (
 	github.com/adrianmross/oauthlite v0.2.0
 	github.com/adrianmross/ratchet v0.1.0
 	github.com/adrianmross/tokenkeep v0.1.0
+	github.com/coreos/go-oidc/v3 v3.21.0
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
+	golang.org/x/oauth2 v0.37.0
 	modernc.org/sqlite v1.34.5
 )
 
