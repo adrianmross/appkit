@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/adrianmross/appkit/compare/v0.2.4...v0.3.0) (2026-11-15)
+
+
+### Features
+
+* **httpx:** add Batch, PageSlice, GetOne, DeleteOne and BoolParam ([#20](https://github.com/adrianmross/appkit/issues/20)) ([035ae72](https://github.com/adrianmross/appkit/commit/035ae72aa3e5bd750e113f54c1fce4a5885e5773))
+* **ui:** let an app declare itself export-only and supply its own sign-in commands, and name a settings row holding several controls ([#18](https://github.com/adrianmross/appkit/issues/18)) ([407bbc5](https://github.com/adrianmross/appkit/commit/407bbc53dfd07d3200fec6b28d3128b9e89257b4))
+
 ## [0.2.4](https://github.com/adrianmross/appkit/compare/v0.2.3...v0.2.4) (2026-11-14)
 
 
