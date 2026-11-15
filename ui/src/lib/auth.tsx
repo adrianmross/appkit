@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
-import { api, ApiError, cookieSession, EXPORT_MODE, getToken, setToken } from "./api-client"
+import { api, ApiError, cookieSession, exportMode, getToken, setToken } from "./api-client"
 import { brand } from "./brand"
 import { setPref } from "./settings"
 import type { Me } from "./types"
@@ -77,7 +77,7 @@ const SESSION_CHECK_TIMEOUT_MS = 10_000
 // POST /v1/demo (see startDemo below), stored exactly like a real one.
 export function AuthProvider({ initialMe, children }: { initialMe: Me | null; children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(initialMe)
-  const [loading, setLoading] = useState(EXPORT_MODE && initialMe == null)
+  const [loading, setLoading] = useState(exportMode() && initialMe == null)
   const [error, setError] = useState<string | null>(null)
   const [proxySignedOut, setProxySignedOut] = useState(false)
 
@@ -88,8 +88,8 @@ export function AuthProvider({ initialMe, children }: { initialMe: Me | null; ch
   }, [])
 
   useEffect(() => {
-    const skip = EXPORT_MODE && me == null && !getToken() && readProxySignedOut()
-    if (!EXPORT_MODE || me != null || skip) {
+    const skip = exportMode() && me == null && !getToken() && readProxySignedOut()
+    if (!exportMode() || me != null || skip) {
       // Nothing to check (hosted, already resolved, or signed out of the
       // proxy owner) — settles the one-time mount-time state, not a render loop.
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -124,7 +124,7 @@ export function AuthProvider({ initialMe, children }: { initialMe: Me | null; ch
   const signIn = useCallback(async (token: string) => {
     setError(null)
     try {
-      if (EXPORT_MODE) {
+      if (exportMode()) {
         setProxyMarker(false)
         setMe(await storeToken(token))
       } else {
@@ -147,7 +147,7 @@ export function AuthProvider({ initialMe, children }: { initialMe: Me | null; ch
   const startDemo = useCallback(async () => {
     setError(null)
     try {
-      if (EXPORT_MODE) {
+      if (exportMode()) {
         const { token } = await api<{ token: string }>("/v1/demo", { method: "POST" })
         setProxyMarker(false)
         setMe(await storeToken(token))
@@ -171,7 +171,7 @@ export function AuthProvider({ initialMe, children }: { initialMe: Me | null; ch
   }, [setProxyMarker])
 
   const signOut = useCallback(async (to = "/sign-in") => {
-    if (EXPORT_MODE) {
+    if (exportMode()) {
       // Awaited for the same reason as the hosted branch below.
       if (cookieSession()) await api("/v1/auth/session", { method: "DELETE" })
       setToken("")

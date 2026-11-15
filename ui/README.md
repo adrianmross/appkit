@@ -41,7 +41,7 @@ Two entry points:
 - `@adrianmross/appkit-ui`: components, hooks and the browser API client.
 - `@adrianmross/appkit-ui/server`: `serverApi`, `getMe`, the route handlers (`proxyRoute`, `signInRoute`, `signOutRoute`, `demoRoute`) and `authProxy` for `proxy.ts`. These read cookies, so import them only from server code.
 
-Build-time switches the package reads directly: `NEXT_PUBLIC_EXPORT_MODE=1` (static export served by the Go binary), `NEXT_PUBLIC_NEON_AUTH_URL`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
+Build-time switches the package reads directly: `NEXT_PUBLIC_EXPORT_MODE=1` (static export served by the Go binary; an app that is never anything else passes `exportMode: true` to `configure()` instead), `NEXT_PUBLIC_NEON_AUTH_URL`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
 
 ## Installing
 

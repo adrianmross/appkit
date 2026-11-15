@@ -10,7 +10,9 @@
 
 import { brand, storageKey } from "./brand"
 
-const EXPORT_MODE = process.env.NEXT_PUBLIC_EXPORT_MODE === "1"
+// An app that is only ever a static export says so in configure(); one that
+// builds both ways switches with the env var.
+const exportMode = () => brand().exportMode ?? process.env.NEXT_PUBLIC_EXPORT_MODE === "1"
 // Self-hosted serves the dashboard and the API from the same binary and
 // port — same origin, so a relative path is correct by default. Only set
 // the brand's apiUrl if the dashboard is genuinely deployed separately from
@@ -21,7 +23,7 @@ const tokenKey = () => storageKey("token")
 // session cookie (POST /v1/auth/session), out of reach of page scripts.
 // Only a dashboard on another origin than its API still holds a bearer
 // token in localStorage, since the cookie can't follow it there.
-export const cookieSession = () => EXPORT_MODE && !apiBase()
+export const cookieSession = () => exportMode() && !apiBase()
 
 export class ApiError extends Error {
   status: number
@@ -69,7 +71,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
 
   let url: string
-  if (EXPORT_MODE) {
+  if (exportMode()) {
     url = apiBase() + path
     const token = cookieSession() ? "" : getToken()
     if (token) headers.Authorization = "Bearer " + token
@@ -110,13 +112,13 @@ export function serverUrl(): string {
 // For calls that can't go through api<T>() (binary responses, e.g. a
 // favicon image) — same proxy-vs-direct branching, caller does its own fetch.
 export function apiUrl(path: string): string {
-  return EXPORT_MODE ? apiBase() + path : "/api/proxy" + path
+  return exportMode() ? apiBase() + path : "/api/proxy" + path
 }
 
 export function apiHeaders(): Record<string, string> {
-  if (!EXPORT_MODE || cookieSession()) return {}
+  if (!exportMode() || cookieSession()) return {}
   const token = getToken()
   return token ? { Authorization: "Bearer " + token } : {}
 }
 
-export { EXPORT_MODE }
+export { exportMode }
