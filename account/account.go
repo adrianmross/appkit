@@ -49,9 +49,16 @@ type Accounts struct {
 	// Public marks paths that need no token, beyond the built-in ones
 	// (everything outside /v1/, and /v1/auth/).
 	Public func(path string) bool
-	Log    *slog.Logger
-	Now    func() time.Time
-	NewID  func() string
+	// OAuth turns on sign-in for the app's CLI. Nil leaves it off.
+	OAuth *OAuth
+	// Passkeys turns on WebAuthn sign-in. Nil leaves it off.
+	Passkeys *Passkeys
+	// OIDC lets existing users sign in through an identity provider. Nil
+	// leaves it off.
+	OIDC  *OIDC
+	Log   *slog.Logger
+	Now   func() time.Time
+	NewID func() string
 	// Ready gates /readyz; set it once boot (migrations, bootstrap) is done.
 	Ready atomic.Bool
 }
@@ -112,11 +119,15 @@ func (a *Accounts) Unauthorized() error {
 
 func (a *Accounts) sessions() *session.Manager {
 	idle, max := a.ttl()
-	return &session.Manager{
+	m := &session.Manager{
 		Store: a.Store(), Now: a.now, NewID: a.ID,
-		LoginName: LoginName, IdleTTL: idle, MaxTTL: max,
+		LoginName: LoginName, IdleTTL: idle, MaxTTL: max, StepUpWindow: StepUpWindow,
 		Scopes: a.scopes(), TokenMarker: a.TokenMarker, Unauthorized: a.Unauthorized,
 	}
+	if a.Passkeys != nil {
+		m.HasStepUp = a.hasPasskey
+	}
+	return m
 }
 
 // Authenticate turns a token secret into the actor it stands for.
@@ -255,6 +266,34 @@ func (a *Accounts) Bootstrap(ctx context.Context, ownerName, ownerEmail, tokenNa
 		return nil
 	})
 	return issued, err
+}
+
+// MintOwnerToken gives the owner (the oldest user) a new token holding every
+// scope. It is for whoever runs the server: a database created before the
+// app had ApproveScope has no token that can approve a CLI login.
+func (a *Accounts) MintOwnerToken(ctx context.Context, name string) (string, error) {
+	secret, prefix, hash, err := session.Generate(a.TokenMarker)
+	if err != nil {
+		return "", err
+	}
+	if name, err = requireText("name", name, 80); err != nil {
+		return "", err
+	}
+	if name == LoginName {
+		return "", apperr.Validation("the name %q is reserved", LoginName)
+	}
+	return secret, a.DB.WithTx(ctx, func(ctx context.Context) error {
+		user, err := a.Store().FirstUser(ctx)
+		if err != nil {
+			return err
+		}
+		tok := session.Token{ID: a.ID(), UserID: user.ID, Name: name, Hash: hash, Prefix: prefix, Scopes: a.scopes(), CreatedAt: a.now()}
+		if err := a.Store().CreateToken(ctx, tok); err != nil {
+			return err
+		}
+		act := actor.Actor{UserID: user.ID, TokenID: tok.ID, Name: tok.Name, Scopes: tok.Scopes}
+		return a.Audit(ctx, act, "token.create", "token", tok.ID, "owner token "+name+", minted on the server", map[string]any{"prefix": prefix, "scopes": tok.Scopes})
+	})
 }
 
 // Me is who a request is from.

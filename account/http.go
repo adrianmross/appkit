@@ -45,6 +45,8 @@ func (a *Accounts) cookie() session.Cookie {
 //	GET    /v1/audit
 //	GET    /v1/events
 //
+// and, when they are turned on, the routes of OAuth, Passkeys and OIDC.
+//
 // Serve the mux through Handler, which authenticates every /v1 request.
 func (a *Accounts) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +66,15 @@ func (a *Accounts) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /v1/tokens/{id}", a.revokeToken)
 	mux.HandleFunc("GET /v1/audit", a.listAudit)
 	mux.HandleFunc("GET /v1/events", a.listEvents)
+	if a.OAuth != nil {
+		a.oauthRoutes(mux)
+	}
+	if a.Passkeys != nil {
+		a.passkeyRoutes(mux)
+	}
+	if a.OIDC != nil {
+		a.oidcRoutes(mux)
+	}
 }
 
 // Handler wraps the app's mux with the request log, panic recovery, CORS
@@ -135,10 +146,19 @@ func (a *Accounts) ready(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, 200, map[string]string{"status": "ready"})
 }
 
-// authProviders tells the sign-in page what it can offer. This layer only
-// has token sign-in.
+// authProviders tells the sign-in page what it can offer.
 func (a *Accounts) authProviders(w http.ResponseWriter, r *http.Request) {
-	httpx.WriteJSON(w, 200, map[string]any{"tenant_mode": "single", "providers": []any{}, "allow_token_login": true, "demo_available": false, "signups_open": false, "passkeys": false})
+	providers := []map[string]string{}
+	if a.OIDC != nil {
+		for _, p := range a.OIDC.Providers {
+			label := p.Label
+			if label == "" {
+				label = p.Name
+			}
+			providers = append(providers, map[string]string{"name": p.Name, "label": label})
+		}
+	}
+	httpx.WriteJSON(w, 200, map[string]any{"tenant_mode": "single", "providers": providers, "allow_token_login": true, "demo_available": false, "signups_open": false, "passkeys": a.Passkeys != nil})
 }
 
 // createSession checks a token the way any request would, stores it in the
