@@ -1,3 +1,5 @@
+github.com/adrianmross/oauthlite v0.2.0 h1:Nx7S9iCoy3bu/0O1h5djHsV3KK7JvkK4uq/sUNhtLqY=
+github.com/adrianmross/oauthlite v0.2.0/go.mod h1:Y+RUg0Y2c2H5E4EttBgrejxeYyTt/00YpFljZc+/pbg=
 github.com/adrianmross/ratchet v0.1.0 h1:PJR1YcEhR1psSdxmCIQG9VsiYObIdXQRD4DO+EMEhy8=
 github.com/adrianmross/ratchet v0.1.0/go.mod h1:QPBPsf4c33h4V4/n5nARGr+XYp9h1brglA0y5OfoXc0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

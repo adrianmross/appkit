@@ -45,6 +45,8 @@ func (a *Accounts) cookie() session.Cookie {
 //	GET    /v1/audit
 //	GET    /v1/events
 //
+// and, when they are turned on, the routes of OAuth, Passkeys and OIDC.
+//
 // Serve the mux through Handler, which authenticates every /v1 request.
 func (a *Accounts) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +66,9 @@ func (a *Accounts) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /v1/tokens/{id}", a.revokeToken)
 	mux.HandleFunc("GET /v1/audit", a.listAudit)
 	mux.HandleFunc("GET /v1/events", a.listEvents)
+	if a.OAuth != nil {
+		a.oauthRoutes(mux)
+	}
 }
 
 // Handler wraps the app's mux with the request log, panic recovery, CORS
