@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/adrianmross/appkit/compare/v0.3.0...v0.4.0) (2026-11-15)
+
+
+### Features
+
+* **account:** sign in a CLI through OAuth, and the dashboard with a passkey or an OIDC provider ([#21](https://github.com/adrianmross/appkit/issues/21)) ([79db553](https://github.com/adrianmross/appkit/commit/79db553e57c4bea78dc8e9532184a41f1207c7ae))
+* **ui:** offer the identity providers the server lists on the sign-in page ([#23](https://github.com/adrianmross/appkit/issues/23)) ([d23e383](https://github.com/adrianmross/appkit/commit/d23e3830349a363c87287c33da3ca2a536958f31))
+
 ## [0.3.0](https://github.com/adrianmross/appkit/compare/v0.2.4...v0.3.0) (2026-11-15)
 
 
