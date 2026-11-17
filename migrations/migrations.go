@@ -7,6 +7,8 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 
 	"github.com/adrianmross/ratchet"
 )
@@ -19,7 +21,13 @@ const Set = "appkit"
 // uses ratchet's default. Pass the app's own key to serialize with its
 // migrations and bootstrap.
 func Up(ctx context.Context, db *sql.DB, dialect string, lockKey int64) error {
-	return ratchet.Runner{Dialect: dialect, Set: Set, LockKey: lockKey}.Up(ctx, db, All)
+	err := ratchet.Runner{Dialect: dialect, Set: Set, LockKey: lockKey}.Up(ctx, db, All)
+	// The first migration only fails on tables of the same names with another
+	// shape, which is a database from before the app was built on appkit.
+	if err != nil && strings.Contains(err.Error(), Set+"/001") {
+		return fmt.Errorf("%w: this database has tables from before the app used appkit and cannot be upgraded in place; move it aside and start a new one", err)
+	}
+	return err
 }
 
 // All is the platform set. Timestamps are RFC 3339 text. Once a migration

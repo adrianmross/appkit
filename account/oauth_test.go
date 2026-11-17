@@ -152,3 +152,44 @@ func TestOAuth(t *testing.T) {
 		}
 	})
 }
+
+// The public sign-in routes stop answering one address past their limit, and
+// start again in the next window.
+func TestRateLimit(t *testing.T) {
+	each(t, func(t *testing.T, db *sqldb.DB) {
+		now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+		a := &Accounts{DB: db, App: "demo", TokenMarker: "dmo_", Scopes: []string{"read"}, OAuth: &OAuth{},
+			Now: func() time.Time { return now }, ClientIP: func(r *http.Request) string { return r.Header.Get("X-Test-IP") }}
+		mux := http.NewServeMux()
+		a.Routes(mux)
+		srv := httptest.NewServer(a.Handler(mux))
+		defer srv.Close()
+		try := func(ip string) int {
+			req, _ := http.NewRequest("POST", srv.URL+"/v1/auth/session", strings.NewReader(`{"token":"dmo_wrong"}`))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Sec-Fetch-Site", "same-origin")
+			req.Header.Set("X-Test-IP", ip)
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res.Body.Close()
+			return res.StatusCode
+		}
+		for i := 0; i < 20; i++ {
+			if code := try("10.0.0.1"); code != 401 {
+				t.Fatalf("guess %d: %d", i+1, code)
+			}
+		}
+		if code := try("10.0.0.1"); code != 429 {
+			t.Fatalf("guess 21: %d", code)
+		}
+		if code := try("10.0.0.2"); code != 401 {
+			t.Fatalf("another address: %d", code)
+		}
+		now = now.Add(time.Minute)
+		if code := try("10.0.0.1"); code != 401 {
+			t.Fatalf("next window: %d", code)
+		}
+	})
+}
