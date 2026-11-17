@@ -1,0 +1,44 @@
+name: changelog
+
+# Its own workflow so a title or label change reruns only this check, not ci.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+concurrency:
+  group: changelog-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # A PR that ships a release carries a .changelogs fragment, and its title is
+  # the release subject Release Please reads for the bump. A no-release title
+  # (chore, ci, docs, refactor, ...) or the no-changelog label needs none; see
+  # the check block defaults in changelogger. Release Please's own PR consumes
+  # the fragments, so it is exempt.
+  changelog:
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: changelogger
+        uses: adrianmross/changelogger@v0.11.0
+      # Title, body and labels go through env, never `args`: PR text is untrusted.
+      - env:
+          CHANGELOGGER: ${{ steps.changelogger.outputs.path }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          # Fragments merged earlier stay on main until the release PR consumes
+          # them; check only the ones this PR adds, or every PR in between must
+          # reuse an old title. The checkout is disposable.
+          git diff --name-only --diff-filter=A "origin/${BASE_REF}...HEAD" -- .changelogs > "$RUNNER_TEMP/added"
+          for f in .changelogs/*.md; do
+            [ "$f" = .changelogs/README.md ] || grep -qxF "$f" "$RUNNER_TEMP/added" || rm -- "$f"
+          done
+          "$CHANGELOGGER" check --base "origin/${BASE_REF}" --pr --pr-title "$PR_TITLE" --pr-body "$PR_BODY" --pr-labels "$PR_LABELS"

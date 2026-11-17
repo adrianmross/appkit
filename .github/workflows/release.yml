@@ -18,6 +18,42 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # Fragments under .changelogs wait on main until a release; the release
+      # PR removes the ones it ships. Merge that PR when a batch is worth a
+      # version, not after every change.
+      - id: release-pr
+        if: steps.release.outputs.prs_created == 'true'
+        uses: adrianmross/changelogger@v0.11.0
+        with:
+          command: release-info
+        env:
+          CHANGELOGGER_RELEASE_PRS: ${{ steps.release.outputs.prs }}
+      - if: steps.release-pr.outputs.head_ref != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release-pr.outputs.head_ref }}
+          path: release-pr
+      - if: steps.release-pr.outputs.head_ref != ''
+        uses: adrianmross/changelogger@v0.11.0
+        with:
+          command: consume
+          working-directory: release-pr
+      - if: steps.release-pr.outputs.head_ref != ''
+        working-directory: release-pr
+        env:
+          HEAD_REF: ${{ steps.release-pr.outputs.head_ref }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .changelogs; then
+            echo "No fragments to consume."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- .changelogs
+          git commit -m "chore(release): consume changelog fragments"
+          git push origin "HEAD:${HEAD_REF}"
+
       # The UI package is not on a registry. Each release carries it as a
       # tarball, and an app depends on that URL.
       - uses: actions/checkout@v4
