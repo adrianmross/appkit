@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"log/slog"
+	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -55,10 +56,14 @@ type Accounts struct {
 	Passkeys *Passkeys
 	// OIDC lets existing users sign in through an identity provider. Nil
 	// leaves it off.
-	OIDC  *OIDC
-	Log   *slog.Logger
-	Now   func() time.Time
-	NewID func() string
+	OIDC *OIDC
+	// ClientIP names the caller's address, for rate limits and the device
+	// consent page. Nil uses the peer address, which behind a proxy is the
+	// proxy: set it to read the forwarded header of a proxy the app trusts.
+	ClientIP func(r *http.Request) string
+	Log      *slog.Logger
+	Now      func() time.Time
+	NewID    func() string
 	// Ready gates /readyz; set it once boot (migrations, bootstrap) is done.
 	Ready atomic.Bool
 }

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"mime"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -301,8 +300,8 @@ func (g grantStore) DeleteExpired(ctx context.Context, before time.Time) error {
 }
 
 func (a *Accounts) oauthRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /v1/auth/device_authorization", a.oauthDeviceAuthorization)
-	mux.HandleFunc("POST /v1/auth/token", a.oauthToken)
+	mux.HandleFunc("POST /v1/auth/device_authorization", a.limited("device", 10, true, a.oauthDeviceAuthorization))
+	mux.HandleFunc("POST /v1/auth/token", a.limited("token", 60, true, a.oauthToken))
 	mux.HandleFunc("POST /v1/auth/revoke", a.oauthRevokeHTTP)
 	mux.HandleFunc("GET /v1/oauth/authorize", a.oauthAuthorizeCheck)
 	mux.HandleFunc("POST /v1/oauth/authorize", a.oauthAuthorize)
@@ -355,21 +354,11 @@ func PublicBase(r *http.Request) string {
 	return scheme + "://" + host
 }
 
-// ponytail: the peer address, shown to the approver; behind a proxy that is
-// the proxy. Read the proxy's forwarded header once an app trusts one.
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
-
 func (a *Accounts) oauthDeviceAuthorization(w http.ResponseWriter, r *http.Request) {
 	if !oauthForm(w, r) {
 		return
 	}
-	out, err := a.oauth().DeviceStart(r.Context(), r.PostForm.Get("client_id"), r.PostForm.Get("scope"), PublicBase(r)+"/device", clientIP(r))
+	out, err := a.oauth().DeviceStart(r.Context(), r.PostForm.Get("client_id"), r.PostForm.Get("scope"), PublicBase(r)+"/device", a.clientIP(r))
 	if err != nil {
 		a.logOAuth("device_authorization", err)
 		writeOAuthErr(w, err)

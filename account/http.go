@@ -57,7 +57,7 @@ func (a *Accounts) Routes(mux *http.ServeMux) {
 		httpx.WriteJSON(w, 200, map[string]string{"version": a.Version})
 	})
 	mux.HandleFunc("GET /v1/auth/providers", a.authProviders)
-	mux.HandleFunc("POST /v1/auth/session", a.createSession)
+	mux.HandleFunc("POST /v1/auth/session", a.limited("session", 20, false, a.createSession))
 	mux.HandleFunc("DELETE /v1/auth/session", a.deleteSession)
 	mux.HandleFunc("GET /v1/me", a.me)
 	mux.HandleFunc("PATCH /v1/me", a.updateMe)

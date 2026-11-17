@@ -136,8 +136,8 @@ func randomToken() (string, error) {
 }
 
 func (a *Accounts) oidcRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /v1/auth/{provider}/start", a.oidcStart)
-	mux.HandleFunc("GET /v1/auth/{provider}/callback", a.oidcCallback)
+	mux.HandleFunc("GET /v1/auth/{provider}/start", a.limited("oidc", 20, false, a.oidcStart))
+	mux.HandleFunc("GET /v1/auth/{provider}/callback", a.limited("oidc", 20, false, a.oidcCallback))
 }
 
 func (a *Accounts) oidcConfig(r *http.Request, p *oidcProvider) *oauth2.Config {
@@ -240,7 +240,7 @@ func (a *Accounts) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var secret string
-	err = a.DB.WithTx(originCtx(r), func(ctx context.Context) error {
+	err = a.DB.WithTx(a.originCtx(r), func(ctx context.Context) error {
 		user, err := a.Store().FindUserByEmail(ctx, email)
 		if err != nil {
 			return err

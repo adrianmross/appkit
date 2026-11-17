@@ -414,8 +414,8 @@ func (a *Accounts) passkeyRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/passkeys/register/finish", a.passkeyRegisterFinish)
 	mux.HandleFunc("GET /v1/passkeys", a.listPasskeys)
 	mux.HandleFunc("DELETE /v1/passkeys/{id}", a.deletePasskey)
-	mux.HandleFunc("POST /v1/auth/passkey/login/begin", a.passkeyLoginBegin)
-	mux.HandleFunc("POST /v1/auth/passkey/login/finish", a.passkeyLoginFinish)
+	mux.HandleFunc("POST /v1/auth/passkey/login/begin", a.limited("passkey", 20, false, a.passkeyLoginBegin))
+	mux.HandleFunc("POST /v1/auth/passkey/login/finish", a.limited("passkey", 20, false, a.passkeyLoginFinish))
 }
 
 // passkeyBody reads a same-origin JSON body.
@@ -515,8 +515,8 @@ func (a *Accounts) signIn(w http.ResponseWriter, r *http.Request, secret string)
 	return act, nil
 }
 
-func originCtx(r *http.Request) context.Context {
-	return session.WithOrigin(r.Context(), session.Origin{IP: clientIP(r), UserAgent: r.UserAgent()})
+func (a *Accounts) originCtx(r *http.Request) context.Context {
+	return session.WithOrigin(r.Context(), session.Origin{IP: a.clientIP(r), UserAgent: r.UserAgent()})
 }
 
 func (a *Accounts) passkeyLoginFinish(w http.ResponseWriter, r *http.Request) {
@@ -524,7 +524,7 @@ func (a *Accounts) passkeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	secret, err := a.FinishPasskeyLogin(originCtx(r), body)
+	secret, err := a.FinishPasskeyLogin(a.originCtx(r), body)
 	if err == nil {
 		var act actor.Actor
 		if act, err = a.signIn(w, r, secret); err == nil {
