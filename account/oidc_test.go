@@ -107,6 +107,11 @@ func TestOIDC(t *testing.T) {
 			return get("/v1/auth/corp/callback?code=c&state="+url.QueryEscape(state), res.Cookies()[0])
 		}
 
+		// A refused round trip goes back to the sign-in page without a session.
+		sentBack := func(res *http.Response) bool {
+			return res.StatusCode == 302 && res.Header.Get("Location") == "/sign-in?error=provider" && len(res.Cookies()) == 1 && res.Cookies()[0].MaxAge < 0
+		}
+
 		var out map[string]any
 		res, _ := http.Get(srv.URL + "/v1/auth/providers")
 		_ = json.NewDecoder(res.Body).Decode(&out)
@@ -133,16 +138,16 @@ func TestOIDC(t *testing.T) {
 			t.Fatalf("the sign-in: %+v %v", act, err)
 		}
 
-		if res := round(func(s *string) { *s += "x" }); res.StatusCode != 401 {
-			t.Fatalf("wrong state: %d", res.StatusCode)
+		if res := round(func(s *string) { *s += "x" }); !sentBack(res) {
+			t.Fatalf("wrong state: %d %s", res.StatusCode, res.Header.Get("Location"))
 		}
 		p.email = "stranger@example.com"
-		if res := round(nil); res.StatusCode != 401 {
-			t.Fatalf("an email nobody has signed in: %d", res.StatusCode)
+		if res := round(nil); !sentBack(res) {
+			t.Fatalf("an email nobody has signed in: %d %s", res.StatusCode, res.Header.Get("Location"))
 		}
 		p.email, p.verified = "ada@example.com", false
-		if res := round(nil); res.StatusCode != 401 {
-			t.Fatalf("an unverified email signed in: %d", res.StatusCode)
+		if res := round(nil); !sentBack(res) {
+			t.Fatalf("an unverified email signed in: %d %s", res.StatusCode, res.Header.Get("Location"))
 		}
 		if n, _ := a.Store().CountUsers(ctx); n != 1 {
 			t.Fatalf("sign-in created a user: %d", n)
