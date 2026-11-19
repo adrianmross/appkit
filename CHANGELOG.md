@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/adrianmross/appkit/compare/v0.4.0...v0.5.0) (2026-11-19)
+
+
+### Features
+
+* **appkit:** Add humax, a Huma v2 setup that answers with the same error envelope and strict request checks as httpx ([#29](https://github.com/adrianmross/appkit/issues/29)) ([5b2cd81](https://github.com/adrianmross/appkit/commit/5b2cd81af3e1045357298bb347ae5b0654a6375e))
+* **appkit:** let other apps sign in through OAuth: client metadata URLs, dynamic registration, refresh tokens and the discovery documents ([#32](https://github.com/adrianmross/appkit/issues/32)) ([ae269b0](https://github.com/adrianmross/appkit/commit/ae269b08324f1a55e7d64acbfabbc1e2c55ab7a6))
+* **appkit:** rate-limit the public sign-in routes per address ([#26](https://github.com/adrianmross/appkit/issues/26)) ([ab1e00f](https://github.com/adrianmross/appkit/commit/ab1e00f0ecc94ff1863408ed48a4f9f5089b679b))
+* **appkit:** Sign in with a Better Auth instance's JWT, and let a visitor try the app in a throwaway demo sandbox ([#30](https://github.com/adrianmross/appkit/issues/30)) ([2f35baf](https://github.com/adrianmross/appkit/commit/2f35bafacc3e5c0997c2ce1799dfb57e7625f986))
+
+
+### Bug Fixes
+
+* **appkit:** Send a refused identity provider sign-in back to the sign-in page with a message, not a raw error ([#31](https://github.com/adrianmross/appkit/issues/31)) ([fa72668](https://github.com/adrianmross/appkit/commit/fa726681a2095392d694c6c793d7f3d09d76d207))
+
 ## [0.4.0](https://github.com/adrianmross/appkit/compare/v0.3.0...v0.4.0) (2026-11-15)
 
 
