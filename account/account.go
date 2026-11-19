@@ -485,6 +485,11 @@ func (a *Accounts) RevokeToken(ctx context.Context, id string) (session.Token, e
 			return err
 		}
 		out.Hash = ""
+		if out.FamilyID != "" { // an app's access token: the whole connection goes
+			if err := a.revokeTokenFamily(ctx, out.FamilyID); err != nil {
+				return err
+			}
+		}
 		if changed {
 			return a.Audit(ctx, act, "token.revoke", "token", id, "revoked token "+out.Name, nil)
 		}
