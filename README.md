@@ -16,6 +16,7 @@ It builds on three small libraries: [ratchet](https://github.com/adrianmross/rat
 | `paging` | the list envelope, cursors and the `fields` check |
 | `session` | API token checks, dashboard sign-ins with idle and absolute lifetimes, the session cookie and the request gate |
 | `httpx` | JSON request and response helpers, request tracing, CORS, and writes with dry run and `Idempotency-Key` replay |
+| `humax` | A Huma v2 API on the standard mux that keeps the error envelope and strict request checks of `httpx`, for an app that wants `/openapi.json` generated from typed operations |
 | `sqldb` | Postgres or SQLite behind one query style: `?` placeholders, a transaction in the context, one database-wide lock |
 | `account` | users, API tokens, dashboard sign-in, the audit log, and the HTTP routes for them (`/v1/me`, `/v1/tokens`, `/v1/audit`, `/v1/events`, `/v1/auth/session`). Optional, each off until its field on `Accounts` is set: `OAuth` (the app's CLI signs in by loopback code with PKCE or a device code), `Passkeys` (WebAuthn sign-in) and `OIDC` (sign-in through an identity provider) |
 | `events` | the activity feed: events about a subject, with JSON data the app owns |
