@@ -44,6 +44,7 @@ func (a *Accounts) cookie() session.Cookie {
 //	GET    /v1/tokens, POST /v1/tokens, DELETE /v1/tokens/{id}
 //	GET    /v1/audit
 //	GET    /v1/events
+//	POST   /v1/demo             a throwaway user and its token; 404 without Demo
 //
 // and, when they are turned on, the routes of OAuth, Passkeys and OIDC.
 //
@@ -66,6 +67,7 @@ func (a *Accounts) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /v1/tokens/{id}", a.revokeToken)
 	mux.HandleFunc("GET /v1/audit", a.listAudit)
 	mux.HandleFunc("GET /v1/events", a.listEvents)
+	mux.HandleFunc("POST /v1/demo", a.startDemo)
 	if a.OAuth != nil {
 		a.oauthRoutes(mux)
 	}
@@ -88,7 +90,7 @@ func (a *Accounts) Handler(next http.Handler) http.Handler {
 }
 
 func (a *Accounts) public(path string) bool {
-	return !strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/v1/auth/") || (a.Public != nil && a.Public(path))
+	return !strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/v1/auth/") || path == "/v1/demo" || (a.Public != nil && a.Public(path))
 }
 
 func crossSite() error {
@@ -158,11 +160,18 @@ func (a *Accounts) authProviders(w http.ResponseWriter, r *http.Request) {
 			providers = append(providers, map[string]string{"name": p.Name, "label": label})
 		}
 	}
-	httpx.WriteJSON(w, 200, map[string]any{"tenant_mode": "single", "providers": providers, "allow_token_login": true, "demo_available": false, "signups_open": false, "passkeys": a.Passkeys != nil})
+	// With Better Auth people have accounts of their own (multi) and sign in
+	// there, not by pasting a token.
+	mode, signups := "single", false
+	if a.BetterAuth != nil {
+		mode, signups = "multi", a.BetterAuth.SignupsOpen
+	}
+	httpx.WriteJSON(w, 200, map[string]any{"tenant_mode": mode, "providers": providers, "allow_token_login": a.BetterAuth == nil, "demo_available": a.Demo != nil, "signups_open": signups, "passkeys": a.Passkeys != nil})
 }
 
 // createSession checks a token the way any request would, stores it in the
-// session cookie and answers like GET /v1/me. Same-origin JSON only, so
+// session cookie and answers like GET /v1/me. A Better Auth JWT is exchanged
+// for a sign-in token instead of being stored. Same-origin JSON only, so
 // another site can't sign the browser into an account it chose.
 func (a *Accounts) createSession(w http.ResponseWriter, r *http.Request) {
 	if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != "application/json" {
@@ -181,12 +190,18 @@ func (a *Accounts) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := strings.TrimSpace(in.Token)
-	act, err := a.Authenticate(r.Context(), token)
+	if a.isBetterAuthJWT(token) {
+		var err error
+		if token, err = a.betterAuthLogin(a.originCtx(r), token); err != nil {
+			httpx.WriteErr(w, err)
+			return
+		}
+	}
+	act, err := a.signIn(w, r, token)
 	if err != nil {
 		httpx.WriteErr(w, err)
 		return
 	}
-	a.cookie().Set(w, r, token)
 	a.me(w, r.WithContext(actor.WithActor(r.Context(), act)))
 }
 

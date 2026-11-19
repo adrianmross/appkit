@@ -57,6 +57,11 @@ type Accounts struct {
 	// OIDC lets existing users sign in through an identity provider. Nil
 	// leaves it off.
 	OIDC *OIDC
+	// BetterAuth accepts a Better Auth instance's JWTs as sign-in. Nil
+	// leaves it off.
+	BetterAuth *BetterAuth
+	// Demo lets a visitor in as a throwaway user. Nil leaves it off.
+	Demo *Demo
 	// ClientIP names the caller's address, for rate limits and the device
 	// consent page. Nil uses the peer address, which behind a proxy is the
 	// proxy: set it to read the forwarded header of a proxy the app trusts.
@@ -126,7 +131,7 @@ func (a *Accounts) sessions() *session.Manager {
 	idle, max := a.ttl()
 	m := &session.Manager{
 		Store: a.Store(), Now: a.now, NewID: a.ID,
-		LoginName: LoginName, IdleTTL: idle, MaxTTL: max, StepUpWindow: StepUpWindow,
+		LoginName: LoginName, DemoName: DemoName, IdleTTL: idle, MaxTTL: max, StepUpWindow: StepUpWindow,
 		Scopes: a.scopes(), TokenMarker: a.TokenMarker, Unauthorized: a.Unauthorized,
 	}
 	if a.Passkeys != nil {
@@ -137,6 +142,9 @@ func (a *Accounts) sessions() *session.Manager {
 
 // Authenticate turns a token secret into the actor it stands for.
 func (a *Accounts) Authenticate(ctx context.Context, secret string) (actor.Actor, error) {
+	if a.isBetterAuthJWT(secret) {
+		return a.betterAuthActor(ctx, secret)
+	}
 	return a.sessions().Authenticate(ctx, secret)
 }
 
