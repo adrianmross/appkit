@@ -501,19 +501,27 @@ function TryDemo() {
 // server's own redirect, so this is for the build the API serves itself.
 function ProviderSignIn() {
   const [providers, setProviders] = useState<{ name: string; label: string }[]>([])
+  const [refused, setRefused] = useState(false)
 
   useEffect(() => {
     if (!exportMode()) return
+    // The server sends a refused round trip back here with ?error=provider.
+    setRefused(new URLSearchParams(window.location.search).get("error") === "provider")
     api<{ providers?: { name: string; label: string }[] }>("/v1/auth/providers")
       .then((result) => setProviders(result.providers || []))
       .catch(() => {})
   }, [])
 
-  return providers.map((p) => (
-    <Button key={p.name} variant="outline" asChild>
-      <a href={apiUrl(`/v1/auth/${encodeURIComponent(p.name)}/start`)}>Continue with {p.label}</a>
-    </Button>
-  ))
+  return (
+    <>
+      {refused && <FailNote>That sign-in didn&apos;t work. The provider has to vouch for the email of an account that already exists here.</FailNote>}
+      {providers.map((p) => (
+        <Button key={p.name} variant="outline" asChild>
+          <a href={apiUrl(`/v1/auth/${encodeURIComponent(p.name)}/start`)}>Continue with {p.label}</a>
+        </Button>
+      ))}
+    </>
+  )
 }
 
 function PasskeySignIn() {

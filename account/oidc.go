@@ -152,7 +152,7 @@ func (a *Accounts) oidcStart(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("provider")
 	p, err := a.OIDC.provider(r.Context(), name)
 	if err != nil {
-		a.oidcFailed(w, name, err)
+		a.oidcFailed(w, r, name, err)
 		return
 	}
 	state, err := randomToken()
@@ -172,14 +172,16 @@ func (a *Accounts) oidcStart(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, a.oidcConfig(r, p).AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
 }
 
-// oidcFailed logs why and tells the browser nothing it could probe with.
-func (a *Accounts) oidcFailed(w http.ResponseWriter, provider string, err error) {
+// oidcFailed logs why and tells the browser nothing it could probe with. The
+// caller is a person mid-navigation, so they go back to the sign-in page,
+// which says the provider sign-in did not work.
+func (a *Accounts) oidcFailed(w http.ResponseWriter, r *http.Request, provider string, err error) {
 	if apperr.IsCode(err, "not_found") {
 		httpx.WriteErr(w, err)
 		return
 	}
 	a.log().Warn("oidc", "provider", provider, "err", err.Error())
-	httpx.WriteErr(w, a.Unauthorized())
+	http.Redirect(w, r, "/sign-in?error=provider", http.StatusFound)
 }
 
 // oidcIdentity validates the state cookie, exchanges the code and verifies
@@ -231,12 +233,12 @@ func (a *Accounts) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("provider")
 	p, err := a.OIDC.provider(r.Context(), name)
 	if err != nil {
-		a.oidcFailed(w, name, err)
+		a.oidcFailed(w, r, name, err)
 		return
 	}
 	email, err := a.oidcIdentity(w, r, p)
 	if err != nil {
-		a.oidcFailed(w, name, err)
+		a.oidcFailed(w, r, name, err)
 		return
 	}
 	var secret string
@@ -256,7 +258,7 @@ func (a *Accounts) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		if apperr.IsCode(err, "not_found") {
 			err = fmt.Errorf("no user has the email the provider returned")
 		}
-		a.oidcFailed(w, name, err)
+		a.oidcFailed(w, r, name, err)
 		return
 	}
 	after := a.OIDC.After
