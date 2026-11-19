@@ -6,6 +6,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -45,9 +46,8 @@ const ApproveScope = "approve"
 //	POST /v1/oauth/device/approve       approve or deny a device code
 //
 // There is no verification_uri_complete (the human types the code), the
-// redirect is loopback only, and there is one client: the CLI.
-// ponytail: no registered third-party clients, refresh tokens or rate
-// limits; pursuit has them in its own service layer.
+// redirect is loopback only, and there is one client: the CLI. Clients lets
+// others in.
 type OAuth struct {
 	// ClientID is the CLI's client_id. Default App + "-cli".
 	ClientID string
@@ -56,6 +56,9 @@ type OAuth struct {
 	// AllowScope may refuse a scope the app's CLI should never hold.
 	// ApproveScope is always refused.
 	AllowScope func(scope string) bool
+	// Clients turns on clients other than the CLI, with refresh tokens and
+	// the discovery documents. Nil leaves them off.
+	Clients *OAuthClients
 }
 
 const oauthTokenName = "cli"
@@ -78,6 +81,9 @@ func (a *Accounts) oauthScopes(raw string) ([]string, error) {
 		return sc != ApproveScope && (a.OAuth.AllowScope == nil || a.OAuth.AllowScope(sc))
 	}
 	parts := strings.FieldsFunc(raw, func(r rune) bool { return r == ' ' || r == ',' })
+	if a.OAuth.Clients != nil {
+		parts = slices.DeleteFunc(parts, func(p string) bool { return p == OfflineAccess })
+	}
 	if len(parts) == 0 {
 		for _, sc := range a.scopes() {
 			if ok(sc) {
@@ -137,17 +143,26 @@ func (a *Accounts) oauth() *oauthlite.Server {
 		Tx:    a.DB.WithTx,
 		Now:   a.now,
 		NewID: a.ID,
-		Client: func(_ context.Context, id string) (oauthlite.Client, error) {
-			if id != "" && id != a.oauthClientID() {
-				return oauthlite.Client{}, oauthErr("invalid_client", "unknown client_id; this server signs in "+a.oauthClientID())
+		Client: func(ctx context.Context, id string) (oauthlite.Client, error) {
+			c, err := a.resolveClient(ctx, id)
+			if err != nil {
+				return oauthlite.Client{}, err
 			}
-			name := a.OAuth.ClientName
-			if name == "" {
-				name = a.App + " CLI"
+			out := oauthlite.Client{ID: c.ID, Name: c.Name}
+			// Builtin clients keep the strict loopback rule.
+			if c.Source != "builtin" {
+				out.Unverified = true
+				out.RedirectOK = func(uri string) bool { return redirectMatches(c.RedirectURIs, uri) }
 			}
-			return oauthlite.Client{ID: a.oauthClientID(), Name: name}, nil
+			return out, nil
 		},
-		ClientIDOK:      func(id string) bool { return id == a.oauthClientID() },
+		ClientIDOK: func(id string) bool {
+			if a.OAuth.Clients == nil {
+				return id == a.oauthClientID()
+			}
+			_, ok := a.normalizeClientID(id)
+			return ok
+		},
 		DefaultClientID: a.oauthClientID(),
 		RetryDeviceHint: "run " + a.App + " auth login --device again",
 	}
@@ -177,6 +192,16 @@ func oauthRefusal(err error) error {
 }
 
 func (a *Accounts) issueOAuthToken(ctx context.Context, g oauthlite.Grant, flow string) (oauthlite.Token, error) {
+	if a.OAuth.Clients != nil {
+		if client, err := a.getOAuthClient(ctx, g.ClientID); err == nil {
+			return a.issueClientTokens(ctx, clientGrant{
+				userID: g.UserID, approverTokenID: g.ApproverTokenID, resource: g.Resource, grantID: g.ID, flow: flow,
+				client: client, scopes: g.Scopes, family: a.ID(), absoluteAt: a.now().Add(RefreshMaxTTL),
+			})
+		} else if err != sql.ErrNoRows {
+			return oauthlite.Token{}, err
+		}
+	}
 	secret, prefix, hash, err := session.Generate(a.TokenMarker)
 	if err != nil {
 		return oauthlite.Token{}, err
@@ -202,6 +227,9 @@ func (a *Accounts) oauthRevoke(ctx context.Context, secret string) error {
 	if secret == "" {
 		return oauthErr("invalid_request", "token is required")
 	}
+	if done, err := a.revokeRefresh(ctx, secret); done {
+		return err
+	}
 	tok, err := a.Store().GetTokenByHash(ctx, session.Hash(secret))
 	if apperr.IsCode(err, "not_found") || (err == nil && tok.RevokedAt != nil) {
 		return nil
@@ -213,6 +241,11 @@ func (a *Accounts) oauthRevoke(ctx context.Context, secret string) error {
 		changed, err := a.Store().RevokeToken(ctx, tok.UserID, tok.ID, a.now())
 		if err != nil || !changed {
 			return err
+		}
+		if tok.FamilyID != "" {
+			if err := a.revokeTokenFamily(ctx, tok.FamilyID); err != nil {
+				return err
+			}
 		}
 		act := actor.Actor{UserID: tok.UserID, TokenID: tok.ID, Name: tok.Name, Scopes: tok.Scopes}
 		return a.Audit(ctx, act, "token.revoke", "token", tok.ID, "revoked token "+tok.Name+" (logout)", nil)
@@ -307,6 +340,9 @@ func (a *Accounts) oauthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/oauth/authorize", a.oauthAuthorize)
 	mux.HandleFunc("GET /v1/oauth/device", a.oauthDeviceLookup)
 	mux.HandleFunc("POST /v1/oauth/device/approve", a.oauthDeviceApprove)
+	if a.OAuth.Clients != nil {
+		a.oauthClientRoutes(mux)
+	}
 }
 
 func oauthForm(w http.ResponseWriter, r *http.Request) bool {
@@ -380,6 +416,12 @@ func (a *Accounts) oauthToken(w http.ResponseWriter, r *http.Request) {
 		out, err = a.oauth().ExchangeCode(r.Context(), f.Get("code"), f.Get("code_verifier"), f.Get("redirect_uri"), f.Get("client_id"), f.Get("resource"))
 	case oauthlite.DeviceCodeGrantType:
 		out, err = a.oauth().ExchangeDevice(r.Context(), f.Get("device_code"), f.Get("client_id"))
+	case "refresh_token":
+		if a.OAuth.Clients != nil {
+			out, err = a.oauthRefresh(r.Context(), f.Get("refresh_token"), f.Get("client_id"), f.Get("scope"), f.Get("resource"))
+			break
+		}
+		fallthrough
 	default:
 		err = oauthErr("unsupported_grant_type", "use authorization_code or "+oauthlite.DeviceCodeGrantType)
 	}
@@ -426,7 +468,7 @@ func (a *Accounts) oauthAuthorizeCheck(w http.ResponseWriter, r *http.Request) {
 	out, err := a.oauth().AuthorizeCheck(r.Context(), oauthlite.AuthorizeInput{
 		ClientID: httpx.First(q, "client_id"), RedirectURI: httpx.First(q, "redirect_uri"), CodeChallenge: httpx.First(q, "code_challenge"),
 		CodeChallengeMethod: httpx.First(q, "code_challenge_method"), State: httpx.First(q, "state"), Scope: httpx.First(q, "scope"),
-		Resource: httpx.First(q, "resource"), Issuer: PublicBase(r),
+		Resource: httpx.First(q, "resource"), Issuer: a.oauthIssuer(r),
 	})
 	if err != nil {
 		httpx.WriteErr(w, oauthRefusal(err))
@@ -457,11 +499,14 @@ func (a *Accounts) oauthAuthorize(w http.ResponseWriter, r *http.Request) {
 	if !consentBody(w, r, &in) {
 		return
 	}
-	in.Issuer = PublicBase(r)
+	in.Issuer = a.oauthIssuer(r)
 	to, err := a.oauth().Authorize(r.Context(), in)
 	if err != nil {
 		httpx.WriteErr(w, oauthRefusal(err))
 		return
+	}
+	if in.Approve && a.OAuth.Clients != nil { // no row for a builtin client, so nothing changes
+		_, _ = a.DB.Exec(r.Context(), `UPDATE oauth_clients SET last_used_at=? WHERE id=?`, sqldb.FormatTime(a.now()), in.ClientID)
 	}
 	httpx.WriteJSON(w, 200, map[string]string{"redirect_to": to})
 }
