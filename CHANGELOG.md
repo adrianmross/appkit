@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/adrianmross/appkit/compare/v0.5.0...v0.6.0) (2026-11-20)
+
+
+### Features
+
+* **appkit:** Give a new verified email its own account when Accounts.MultiTenant is set, record the sign-in a new one replaces in the audit log, and keep approve tokens to a signed-in human ([#35](https://github.com/adrianmross/appkit/issues/35)) ([86e7d94](https://github.com/adrianmross/appkit/commit/86e7d94b5dd3a223f13d0f3d43886a5845b5bbb8))
+
+
+### Bug Fixes
+
+* **appkit:** Name refresh_token among the grant types the token endpoint accepts when other apps can sign in ([#33](https://github.com/adrianmross/appkit/issues/33)) ([c459f5e](https://github.com/adrianmross/appkit/commit/c459f5eb23c68afa55cf6f4ac8db80e4c08c38e7))
+
 ## [0.5.0](https://github.com/adrianmross/appkit/compare/v0.4.0...v0.5.0) (2026-11-19)
 
 
