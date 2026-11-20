@@ -285,6 +285,12 @@ func TestHTTP(t *testing.T) {
 		me, _ := a.Store().FirstUser(ctx)
 		other, _, _ := a.sessions().Mint(ctx, me.ID)
 		proxy := actor.WithActor(ctx, actor.Actor{UserID: me.ID, Name: "Ada", Scopes: []string{"read", "write"}, Proxy: true})
+		if _, err := a.UpdateMe(proxy, MePatch{Avatar: ptr("data:image/png;base64,not base64!")}); !apperr.IsCode(err, "validation") {
+			t.Fatalf("an avatar that does not decode: %v", err)
+		}
+		if u, err := a.UpdateMe(proxy, MePatch{Avatar: ptr("data:image/png;base64,aGk=")}); err != nil || u.Avatar == "" {
+			t.Fatalf("a valid avatar: %+v %v", u, err)
+		}
 		if _, err := a.UpdateMe(proxy, MePatch{Email: ptr("nope")}); !apperr.IsCode(err, "validation") {
 			t.Fatalf("bad email: %v", err)
 		}

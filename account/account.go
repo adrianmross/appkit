@@ -6,6 +6,7 @@ package account
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"log/slog"
@@ -182,6 +183,13 @@ func (a *Accounts) Authenticate(ctx context.Context, secret string) (actor.Actor
 		return a.betterAuthActor(ctx, secret)
 	}
 	return a.sessions().Authenticate(ctx, secret)
+}
+
+// RequireFresh asks a dashboard sign-in to have proved itself recently
+// (the user's passkey) before a sensitive action of the app's own. It passes
+// for API tokens and for users with no passkey.
+func (a *Accounts) RequireFresh(ctx context.Context, act actor.Actor) error {
+	return a.sessions().RequireFresh(ctx, act)
 }
 
 // Require returns the request's actor if it holds scope.
@@ -401,7 +409,10 @@ func (a *Accounts) UpdateMe(ctx context.Context, in MePatch) (User, error) {
 		v := strings.TrimSpace(*in.Avatar)
 		ok := v == ""
 		for _, p := range []string{"data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,"} {
-			ok = ok || strings.HasPrefix(v, p)
+			if data, found := strings.CutPrefix(v, p); found {
+				_, err := base64.StdEncoding.DecodeString(data)
+				ok = err == nil
+			}
 		}
 		if !ok {
 			return User{}, apperr.Validation("avatar must be a png, jpeg, or webp data URL").WithHint("data:image/png;base64,...")
