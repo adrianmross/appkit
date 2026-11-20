@@ -92,6 +92,13 @@ func TestDemo(t *testing.T) {
 		if act, err := a.Authenticate(context.Background(), tokenA); err != nil || !act.Demo {
 			t.Fatalf("authenticate demo token: %+v %v", act, err)
 		}
+		// It holds approve but is not a human, so it cannot mint an approve token.
+		if code, out, _ := testCall(t, "POST", srv.URL+"/v1/tokens", tokenA, `{"name":"x","scopes":["approve"]}`, "Content-Type", "application/json"); code != 403 {
+			t.Fatalf("demo minted an approve token: %d %v", code, out)
+		}
+		if code, out, _ := testCall(t, "POST", srv.URL+"/v1/tokens", tokenA, `{"name":"x","scopes":["write"]}`, "Content-Type", "application/json"); code != 201 {
+			t.Fatalf("demo write token: %d %v", code, out)
+		}
 		// Replay: a new sandbox, and the old token still works.
 		tokenB, userB := start()
 		if userB == userA {
@@ -160,7 +167,7 @@ func TestBetterAuth(t *testing.T) {
 			t.Fatalf("jwt-shaped token with Better Auth off: %d", code)
 		}
 
-		a.BetterAuth = &BetterAuth{BaseURL: base + "/", SignupsOpen: true}
+		a.BetterAuth, a.MultiTenant = &BetterAuth{BaseURL: base + "/"}, true
 		if a.BetterAuth.Origin() != base {
 			t.Fatalf("origin %q", a.BetterAuth.Origin())
 		}
@@ -180,6 +187,14 @@ func TestBetterAuth(t *testing.T) {
 		if code, out, _ := testCall(t, "GET", srv.URL+"/v1/me", "", "", cookie...); code != 200 || out["token"].(map[string]any)["name"] != LoginName {
 			t.Fatalf("me via exchanged cookie: %d %v", code, out)
 		}
+		// Signing in again retires the sign-in the browser held, on the record.
+		_, _, res := testCall(t, "POST", srv.URL+"/v1/auth/session", "", `{"token":"`+jwt+`"}`, append(same, cookie[:2]...)...)
+		var retired int
+		_ = db.QueryRow(ctx, `SELECT COUNT(*) FROM audit_log WHERE action='token.revoke'`).Scan(&retired)
+		if code, _, _ := testCall(t, "GET", srv.URL+"/v1/me", "", "", cookie...); code != 401 || retired != 1 {
+			t.Fatalf("the replaced sign-in: %d, %d audit lines", code, retired)
+		}
+		cookie[1] = strings.SplitN(res.Header.Get("Set-Cookie"), ";", 2)[0]
 		// The JWT is also a bearer token itself, for the same user.
 		if code, out2, _ := testCall(t, "GET", srv.URL+"/v1/me", jwt, ""); code != 200 || out2["user"].(map[string]any)["id"] != out["user"].(map[string]any)["id"] || out2["token"].(map[string]any)["name"] != "betterauth" {
 			t.Fatalf("me via jwt bearer: %d %v", code, out2)
@@ -198,7 +213,7 @@ func TestBetterAuth(t *testing.T) {
 		if code, _, _ := post(jwt[:len(jwt)-4] + "AAAA"); code != 401 {
 			t.Fatalf("bad signature: %d", code)
 		}
-		a.BetterAuth.SignupsOpen = false
+		a.SignupsClosed = true
 		if code, out, _ := post(sign("stranger@example.com", true)); code != 403 || !strings.Contains(out["error"].(map[string]any)["message"].(string), "paused") {
 			t.Fatalf("sign-ups closed, unknown email: %d %v", code, out)
 		}

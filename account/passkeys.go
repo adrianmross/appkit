@@ -18,7 +18,6 @@ import (
 	"github.com/adrianmross/appkit/actor"
 	"github.com/adrianmross/appkit/apperr"
 	"github.com/adrianmross/appkit/httpx"
-	"github.com/adrianmross/appkit/paging"
 	"github.com/adrianmross/appkit/session"
 	"github.com/adrianmross/appkit/sqldb"
 )
@@ -110,7 +109,7 @@ func (u *passkeyUser) WebAuthnDisplayName() string                { return u.use
 func (u *passkeyUser) WebAuthnCredentials() []webauthn.Credential { return u.creds }
 
 func passkeyRefused() error {
-	return &apperr.Error{Code: "unauthorized", Message: "passkey not accepted", Hint: "start again; sign in with a token if this keeps failing", Status: 401}
+	return &apperr.Error{Code: "unauthorized", Message: "passkey not accepted", Hint: "start again; sign in another way if this keeps failing", Status: 401}
 }
 
 func (a *Accounts) passkeyOwner(ctx context.Context) (actor.Actor, error) {
@@ -398,15 +397,23 @@ func (a *Accounts) DeletePasskey(ctx context.Context, id string) error {
 		if err := a.Audit(ctx, act, "passkey.delete", "passkey", id, "removed a passkey", nil); err != nil {
 			return err
 		}
-		res, err = a.DB.Exec(ctx, `UPDATE api_tokens SET revoked_at=? WHERE user_id=? AND name=? AND id<>? AND revoked_at IS NULL`, sqldb.FormatTime(a.now()), act.UserID, LoginName, act.TokenID)
-		if err != nil {
-			return err
-		}
-		if n, _ := res.RowsAffected(); n > 0 {
-			return a.Audit(ctx, act, "session.revoke_others", "token", act.TokenID, fmt.Sprintf("signed out %d other sessions: a passkey was removed", n), map[string]any{"count": n})
-		}
-		return nil
+		return a.signOutOthers(ctx, act, "a passkey was removed")
 	})
+}
+
+// signOutOthers ends every other dashboard sign-in of the actor's user. A
+// credential change (a passkey removed, the email changed) calls it, because
+// whoever relied on the old credential may still hold a session. API tokens
+// and connected apps are untouched: they do not depend on it.
+func (a *Accounts) signOutOthers(ctx context.Context, act actor.Actor, why string) error {
+	res, err := a.DB.Exec(ctx, `UPDATE api_tokens SET revoked_at=? WHERE user_id=? AND name=? AND id<>? AND revoked_at IS NULL`, sqldb.FormatTime(a.now()), act.UserID, LoginName, act.TokenID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		return a.Audit(ctx, act, "session.revoke_others", "token", act.TokenID, fmt.Sprintf("signed out %d other sessions: %s", n, why), map[string]any{"count": n})
+	}
+	return nil
 }
 
 func (a *Accounts) passkeyRoutes(mux *http.ServeMux) {
@@ -465,18 +472,8 @@ func (a *Accounts) passkeyRegisterFinish(w http.ResponseWriter, r *http.Request)
 	httpx.WriteJSON(w, 201, out)
 }
 
-// ponytail: one page; nobody has more passkeys than fit in it.
 func (a *Accounts) listPasskeys(w http.ResponseWriter, r *http.Request) {
-	if _, err := httpx.Query(r, "limit"); err != nil {
-		httpx.WriteErr(w, err)
-		return
-	}
-	keys, err := a.ListPasskeys(r.Context())
-	if err != nil {
-		httpx.WriteErr(w, err)
-		return
-	}
-	httpx.WriteJSON(w, 200, paging.Page[Passkey]{Data: keys, Page: paging.PageMeta{Limit: len(keys), Total: len(keys)}})
+	httpx.PageSlice(w, r, nil, a.ListPasskeys)
 }
 
 func (a *Accounts) deletePasskey(w http.ResponseWriter, r *http.Request) {
@@ -508,7 +505,9 @@ func (a *Accounts) signIn(w http.ResponseWriter, r *http.Request, secret string)
 	}
 	if c := a.cookie().Value(r); c != "" && c != secret {
 		if old, err := a.Authenticate(r.Context(), c); err == nil && old.Name == LoginName && old.UserID == act.UserID {
-			_, _ = a.Store().RevokeToken(r.Context(), old.UserID, old.TokenID, a.now())
+			if _, err := a.RevokeToken(actor.WithActor(r.Context(), old), old.TokenID); err != nil {
+				a.log().Warn("retire previous session", "err", err.Error())
+			}
 		}
 	}
 	a.cookie().Set(w, r, secret)

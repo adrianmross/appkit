@@ -9,14 +9,14 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 
 	"github.com/adrianmross/appkit/actor"
-	"github.com/adrianmross/appkit/apperr"
 )
 
 // BetterAuth accepts the JWTs of a Better Auth (Neon Auth) instance. This is
 // not a redirect flow like OIDC: the dashboard signs the user in with Better
 // Auth's own client SDK and sends its JWT here as a bearer token. A bearer
 // that looks like a JWT (two dots, no TokenMarker) is verified against the
-// instance's keys, and stands for the user with its verified email.
+// instance's keys, and stands for the user with its verified email; a new
+// email gets a user when Accounts.MultiTenant has sign-ups open.
 // POST /v1/auth/session exchanges one for a sign-in token, because the JWT
 // lives about 15 minutes.
 type BetterAuth struct {
@@ -27,9 +27,6 @@ type BetterAuth struct {
 	Issuer string
 	// Audience, when set, is checked against aud. Empty skips the check.
 	Audience string
-	// SignupsOpen lets a verified email nobody here has create its user.
-	// Closed, that person is told sign-ups are paused.
-	SignupsOpen bool
 
 	once     sync.Once
 	verifier *oidc.IDTokenVerifier
@@ -82,28 +79,13 @@ func (a *Accounts) isBetterAuthJWT(raw string) bool {
 	return a.BetterAuth != nil && !strings.HasPrefix(raw, a.TokenMarker) && strings.Count(raw, ".") == 2
 }
 
-// betterAuthUser is the user a Better Auth JWT stands for. The existing user
-// is read without a lock, since this runs on every request; only a first
-// verified email takes the lock to create one.
+// betterAuthUser is the user a Better Auth JWT stands for.
 func (a *Accounts) betterAuthUser(ctx context.Context, raw string) (User, error) {
 	email, name, ok := a.BetterAuth.identity(ctx, raw)
 	if !ok {
 		return User{}, a.Unauthorized()
 	}
-	user, err := a.Store().FindUserByEmail(ctx, email)
-	if !apperr.IsCode(err, "not_found") {
-		return user, err
-	}
-	if !a.BetterAuth.SignupsOpen {
-		return User{}, &apperr.Error{Code: "forbidden", Message: "sign-ups are paused", Hint: "this email has no account yet; ask the owner for access", Status: 403}
-	}
-	err = a.DB.WithLock(ctx, func(ctx context.Context) error {
-		if user, err = a.Store().FindUserByEmail(ctx, email); apperr.IsCode(err, "not_found") {
-			user, err = a.CreateUser(ctx, name, email)
-		}
-		return err
-	})
-	return user, err
+	return a.signupUser(ctx, email, name)
 }
 
 func (a *Accounts) betterAuthActor(ctx context.Context, raw string) (actor.Actor, error) {

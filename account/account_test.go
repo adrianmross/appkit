@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adrianmross/appkit/actor"
 	"github.com/adrianmross/appkit/apperr"
 	"github.com/adrianmross/appkit/events"
 	"github.com/adrianmross/appkit/httpx"
@@ -153,6 +154,8 @@ func TestStore(t *testing.T) {
 	})
 }
 
+func ptr[T any](v T) *T { return &v }
+
 func TestHTTP(t *testing.T) {
 	each(t, func(t *testing.T, db *sqldb.DB) {
 		ctx := context.Background()
@@ -273,6 +276,36 @@ func TestHTTP(t *testing.T) {
 		}
 		if code, out, _ := call("PATCH", "/v1/me", "", map[string]any{"name": "Ada"}, "Cookie", cookie, "Sec-Fetch-Site", "same-origin"); code != 200 || out["name"] != "Ada" {
 			t.Fatalf("update me: %d %v", code, out)
+		}
+
+		// Email is the sign-in identity: only an owner a trusted proxy signed in may change it.
+		if code, out, _ := call("PATCH", "/v1/me", secret, map[string]any{"email": "new@example.com"}); code != 400 || !strings.Contains(at(out, "error", "message").(string), "sign-in") {
+			t.Fatalf("email change by token: %d %v", code, out)
+		}
+		me, _ := a.Store().FirstUser(ctx)
+		other, _, _ := a.sessions().Mint(ctx, me.ID)
+		proxy := actor.WithActor(ctx, actor.Actor{UserID: me.ID, Name: "Ada", Scopes: []string{"read", "write"}, Proxy: true})
+		if _, err := a.UpdateMe(proxy, MePatch{Email: ptr("nope")}); !apperr.IsCode(err, "validation") {
+			t.Fatalf("bad email: %v", err)
+		}
+		if u, err := a.UpdateMe(proxy, MePatch{Email: ptr(" ada@example.com ")}); err != nil || u.Email != "ada@example.com" {
+			t.Fatalf("proxy email change: %+v %v", u, err)
+		}
+		if _, err := a.Authenticate(ctx, other); err == nil {
+			t.Fatal("an email change left another sign-in alive")
+		}
+
+		// The sign-in page is told what to offer.
+		if _, out, _ := call("GET", "/v1/auth/providers", "", nil); out["tenant_mode"] != "single" || out["allow_token_login"] != true || out["signups_open"] != false {
+			t.Fatalf("providers: %v", out)
+		}
+		a.HideTokenLogin = true
+		if _, out, _ := call("GET", "/v1/auth/providers", "", nil); out["allow_token_login"] != false {
+			t.Fatalf("providers, token login hidden: %v", out)
+		}
+		rec := httptest.NewRecorder()
+		if _, ok := ReadBody(rec, httptest.NewRequest("POST", "/", strings.NewReader(strings.Repeat("x", 2049))), 2048); ok || !strings.Contains(rec.Body.String(), "limited to 2KB") {
+			t.Fatalf("oversized body: %s", rec.Body.String())
 		}
 
 		// The feed: a waiting request gets the event written while it waits.

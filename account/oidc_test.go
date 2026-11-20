@@ -49,7 +49,7 @@ func newIDP(t *testing.T) *idp {
 	})
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		claims, _ := json.Marshal(map[string]any{"iss": p.URL, "aud": "client-1", "sub": "u1", "exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(),
-			"email": p.email, "email_verified": p.verified, "nonce": p.nonce})
+			"email": p.email, "email_verified": p.verified, "name": "From The Provider", "nonce": p.nonce})
 		sig, err := signer.Sign(claims)
 		if err != nil {
 			t.Error(err)
@@ -151,6 +151,34 @@ func TestOIDC(t *testing.T) {
 		}
 		if n, _ := a.Store().CountUsers(ctx); n != 1 {
 			t.Fatalf("sign-in created a user: %d", n)
+		}
+
+		// With accounts of their own, a new verified email gets a user, until sign-ups are paused.
+		a.MultiTenant = true
+		p.email, p.verified = "new@example.com", true
+		if res := round(nil); res.StatusCode != 302 || res.Header.Get("Location") != "/home" {
+			t.Fatalf("sign-up: %d %s", res.StatusCode, res.Header.Get("Location"))
+		}
+		if u, err := a.Store().FindUserByEmail(ctx, "new@example.com"); err != nil || u.Name != "From The Provider" {
+			t.Fatalf("the new user: %+v %v", u, err)
+		}
+		a.SignupsClosed = true
+		p.email = "late@example.com"
+		if res := round(nil); res.StatusCode != 302 || res.Header.Get("Location") != "/sign-in?error=signups_paused" {
+			t.Fatalf("paused sign-up: %d %s", res.StatusCode, res.Header.Get("Location"))
+		}
+		p.email = "new@example.com"
+		if res := round(nil); res.Header.Get("Location") != "/home" {
+			t.Fatalf("an existing user while sign-ups are paused: %s", res.Header.Get("Location"))
+		}
+		if n, _ := a.Store().CountUsers(ctx); n != 2 {
+			t.Fatalf("users: %d", n)
+		}
+
+		a.OIDC.PublicURL = "https://app.example/"
+		to, _ := url.Parse(get("/v1/auth/corp/start").Header.Get("Location"))
+		if got := to.Query().Get("redirect_uri"); got != "https://app.example/v1/auth/corp/callback" {
+			t.Fatalf("redirect_uri with PublicURL: %s", got)
 		}
 	})
 }

@@ -20,10 +20,11 @@ import (
 	"github.com/adrianmross/appkit/session"
 )
 
-// OIDC lets an existing user sign in to the dashboard through an identity
-// provider (Google, a company's own). It only runs the code exchange and
-// checks the ID token; the user is whoever already has that verified email.
-// Nobody is created: a new person still needs the owner to add them.
+// OIDC lets a user sign in to the dashboard through an identity provider
+// (Google, a company's own). It only runs the code exchange and checks the
+// ID token; the user is whoever already has that verified email. Nobody is
+// created unless Accounts.MultiTenant has sign-ups open: otherwise a new
+// person still needs the owner to add them.
 //
 //	GET /v1/auth/{provider}/start     redirects to the provider
 //	GET /v1/auth/{provider}/callback  sets the session cookie, redirects to After
@@ -38,6 +39,9 @@ type OIDC struct {
 	CookieKey []byte
 	// After is where the browser lands once signed in. Default "/".
 	After string
+	// PublicURL is the origin the providers redirect back to, the one their
+	// callback is registered under. Empty uses the origin of the request.
+	PublicURL string
 
 	mu       sync.Mutex
 	resolved map[string]*oidcProvider
@@ -142,7 +146,11 @@ func (a *Accounts) oidcRoutes(mux *http.ServeMux) {
 
 func (a *Accounts) oidcConfig(r *http.Request, p *oidcProvider) *oauth2.Config {
 	cfg := p.oauth2
-	cfg.RedirectURL = PublicBase(r) + "/v1/auth/" + r.PathValue("provider") + "/callback"
+	base := strings.TrimRight(a.OIDC.PublicURL, "/")
+	if base == "" {
+		base = PublicBase(r)
+	}
+	cfg.RedirectURL = base + "/v1/auth/" + r.PathValue("provider") + "/callback"
 	return &cfg
 }
 
@@ -174,59 +182,64 @@ func (a *Accounts) oidcStart(w http.ResponseWriter, r *http.Request) {
 
 // oidcFailed logs why and tells the browser nothing it could probe with. The
 // caller is a person mid-navigation, so they go back to the sign-in page,
-// which says the provider sign-in did not work.
+// which says the provider sign-in did not work, or that sign-ups are paused.
 func (a *Accounts) oidcFailed(w http.ResponseWriter, r *http.Request, provider string, err error) {
 	if apperr.IsCode(err, "not_found") {
 		httpx.WriteErr(w, err)
 		return
 	}
 	a.log().Warn("oidc", "provider", provider, "err", err.Error())
-	http.Redirect(w, r, "/sign-in?error=provider", http.StatusFound)
+	why := "provider"
+	if err == errSignupsPaused {
+		why = "signups_paused"
+	}
+	http.Redirect(w, r, "/sign-in?error="+why, http.StatusFound)
 }
 
 // oidcIdentity validates the state cookie, exchanges the code and verifies
 // the ID token (signature, issuer, audience, nonce, expiry). It returns the
-// verified email.
-func (a *Accounts) oidcIdentity(w http.ResponseWriter, r *http.Request, p *oidcProvider) (string, error) {
+// verified email and the name beside it.
+func (a *Accounts) oidcIdentity(w http.ResponseWriter, r *http.Request, p *oidcProvider) (email, name string, err error) {
 	raw, err := r.Cookie(oidcStateCookie)
 	if err != nil {
-		return "", fmt.Errorf("missing state cookie")
+		return "", "", fmt.Errorf("missing state cookie")
 	}
 	http.SetCookie(w, &http.Cookie{Name: oidcStateCookie, Value: "", Path: "/v1/auth", MaxAge: -1})
 	sp, err := a.OIDC.verify(raw.Value)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if sp.Provider != r.PathValue("provider") || sp.Exp < a.now().Unix() || r.URL.Query().Get("state") != sp.State {
-		return "", fmt.Errorf("state expired or mismatched")
+		return "", "", fmt.Errorf("state expired or mismatched")
 	}
 	tok, err := a.oidcConfig(r, p).Exchange(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	rawID, ok := tok.Extra("id_token").(string)
 	if !ok {
-		return "", fmt.Errorf("no id_token in response")
+		return "", "", fmt.Errorf("no id_token in response")
 	}
 	idToken, err := p.verifier.Verify(r.Context(), rawID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	var claims struct {
 		Email         string `json:"email"`
 		EmailVerified bool   `json:"email_verified"`
+		Name          string `json:"name"`
 		Nonce         string `json:"nonce"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
-		return "", err
+		return "", "", err
 	}
 	if claims.Nonce != sp.Nonce {
-		return "", fmt.Errorf("nonce mismatch")
+		return "", "", fmt.Errorf("nonce mismatch")
 	}
 	if email := strings.TrimSpace(claims.Email); claims.EmailVerified && email != "" {
-		return email, nil
+		return email, claims.Name, nil
 	}
-	return "", fmt.Errorf("the provider did not vouch for an email")
+	return "", "", fmt.Errorf("the provider did not vouch for an email")
 }
 
 func (a *Accounts) oidcCallback(w http.ResponseWriter, r *http.Request) {
@@ -236,26 +249,26 @@ func (a *Accounts) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		a.oidcFailed(w, r, name, err)
 		return
 	}
-	email, err := a.oidcIdentity(w, r, p)
+	email, userName, err := a.oidcIdentity(w, r, p)
 	if err != nil {
 		a.oidcFailed(w, r, name, err)
 		return
 	}
+	ctx := a.originCtx(r)
+	user, err := a.signupUser(ctx, email, userName)
 	var secret string
-	err = a.DB.WithTx(a.originCtx(r), func(ctx context.Context) error {
-		user, err := a.Store().FindUserByEmail(ctx, email)
-		if err != nil {
+	if err == nil {
+		err = a.DB.WithTx(ctx, func(ctx context.Context) error {
+			secret, err = a.mintLogin(ctx, user.ID, "oidc login token", map[string]any{"via": name})
 			return err
-		}
-		secret, err = a.mintLogin(ctx, user.ID, "oidc login token", map[string]any{"via": name})
-		return err
-	})
+		})
+	}
 	if err == nil {
 		_, err = a.signIn(w, r, secret)
 	}
 	if err != nil {
 		// An email nobody here has is refused like any other failure.
-		if apperr.IsCode(err, "not_found") {
+		if apperr.IsCode(err, "unauthorized") {
 			err = fmt.Errorf("no user has the email the provider returned")
 		}
 		a.oidcFailed(w, r, name, err)
