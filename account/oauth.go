@@ -423,7 +423,11 @@ func (a *Accounts) oauthToken(w http.ResponseWriter, r *http.Request) {
 		}
 		fallthrough
 	default:
-		err = oauthErr("unsupported_grant_type", "use authorization_code or "+oauthlite.DeviceCodeGrantType)
+		grants := "authorization_code or "
+		if a.OAuth.Clients != nil {
+			grants = "authorization_code, refresh_token or "
+		}
+		err = oauthErr("unsupported_grant_type", "use "+grants+oauthlite.DeviceCodeGrantType)
 	}
 	if err != nil {
 		a.logOAuth("token", err)
