@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/adrianmross/appkit/compare/v0.6.0...v0.6.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **appkit:** Refuse an avatar whose base64 does not decode, and export RequireFresh so an app can ask for a recent sign-in before its own sensitive actions ([#36](https://github.com/adrianmross/appkit/issues/36)) ([f0cf4a3](https://github.com/adrianmross/appkit/commit/f0cf4a34d4316ee95e8a02cdfe180a8c384cb982))
+
 ## [0.6.0](https://github.com/adrianmross/appkit/compare/v0.5.0...v0.6.0) (2026-11-20)
 
 
