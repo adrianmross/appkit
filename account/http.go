@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -124,7 +125,11 @@ func ReadBody(w http.ResponseWriter, r *http.Request, limit int64) ([]byte, bool
 		return nil, false
 	}
 	if int64(len(b)) > limit {
-		httpx.WriteErr(w, apperr.Validation("request body is too large"))
+		size := fmt.Sprintf("%dKB", limit>>10)
+		if limit%(1<<20) == 0 {
+			size = fmt.Sprintf("%dMB", limit>>20)
+		}
+		httpx.WriteErr(w, apperr.Validation("request body is too large").WithHint("this body is limited to "+size))
 		return nil, false
 	}
 	return b, true
@@ -160,13 +165,13 @@ func (a *Accounts) authProviders(w http.ResponseWriter, r *http.Request) {
 			providers = append(providers, map[string]string{"name": p.Name, "label": label})
 		}
 	}
-	// With Better Auth people have accounts of their own (multi) and sign in
-	// there, not by pasting a token.
-	mode, signups := "single", false
-	if a.BetterAuth != nil {
-		mode, signups = "multi", a.BetterAuth.SignupsOpen
+	// With accounts of their own (multi) people sign in as themselves, not
+	// by pasting a token: tokens are minted in the app, for the CLI.
+	mode := "single"
+	if a.MultiTenant {
+		mode = "multi"
 	}
-	httpx.WriteJSON(w, 200, map[string]any{"tenant_mode": mode, "providers": providers, "allow_token_login": a.BetterAuth == nil, "demo_available": a.Demo != nil, "signups_open": signups, "passkeys": a.Passkeys != nil})
+	httpx.WriteJSON(w, 200, map[string]any{"tenant_mode": mode, "providers": providers, "allow_token_login": !a.HideTokenLogin && !a.MultiTenant, "demo_available": a.Demo != nil, "signups_open": a.signupsOpen(), "passkeys": a.Passkeys != nil})
 }
 
 // createSession checks a token the way any request would, stores it in the

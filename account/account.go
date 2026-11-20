@@ -50,6 +50,14 @@ type Accounts struct {
 	// Public marks paths that need no token, beyond the built-in ones
 	// (everything outside /v1/, and /v1/auth/).
 	Public func(path string) bool
+	// MultiTenant says people have accounts of their own: a verified email
+	// nobody here has, vouched for by OIDC or Better Auth, gets a new user.
+	// SignupsClosed pauses that without touching existing users. Off, the
+	// users are whoever the owner added, and a sign-in must match one.
+	MultiTenant, SignupsClosed bool
+	// HideTokenLogin takes "paste an API token" off the sign-in page; the
+	// API takes bearer tokens either way. MultiTenant hides it regardless.
+	HideTokenLogin bool
 	// OAuth turns on sign-in for the app's CLI. Nil leaves it off.
 	OAuth *OAuth
 	// Passkeys turns on WebAuthn sign-in. Nil leaves it off.
@@ -139,6 +147,34 @@ func (a *Accounts) sessions() *session.Manager {
 	}
 	return m
 }
+
+func (a *Accounts) signupsOpen() bool { return a.MultiTenant && !a.SignupsClosed }
+
+// signupUser is the user a verified email stands for: the one who has it, or
+// while sign-ups are open a new one. The existing user is read without a
+// lock, since Better Auth asks on every request; only a first verified email
+// takes the lock to create.
+func (a *Accounts) signupUser(ctx context.Context, email, name string) (User, error) {
+	user, err := a.Store().FindUserByEmail(ctx, email)
+	if !apperr.IsCode(err, "not_found") {
+		return user, err
+	}
+	if !a.signupsOpen() {
+		if a.MultiTenant {
+			return User{}, errSignupsPaused
+		}
+		return User{}, a.Unauthorized()
+	}
+	err = a.DB.WithLock(ctx, func(ctx context.Context) error {
+		if user, err = a.Store().FindUserByEmail(ctx, email); apperr.IsCode(err, "not_found") {
+			user, err = a.CreateUser(ctx, name, email)
+		}
+		return err
+	})
+	return user, err
+}
+
+var errSignupsPaused = &apperr.Error{Code: "forbidden", Message: "sign-ups are paused", Hint: "this email has no account yet; ask the owner for access", Status: 403}
 
 // Authenticate turns a token secret into the actor it stands for.
 func (a *Accounts) Authenticate(ctx context.Context, secret string) (actor.Actor, error) {
@@ -334,11 +370,13 @@ func (a *Accounts) Me(ctx context.Context) (Me, error) {
 	return Me{User: user, Token: tok}, err
 }
 
-// MePatch changes the user's own profile. Email is the sign-in identity and
-// is not changed here.
+// MePatch changes the user's own profile. Email is the sign-in identity, so
+// only an owner a trusted proxy signed in (Actor.Proxy), who has no provider
+// to change it at, may set it; that signs out their other sessions.
 type MePatch struct {
 	Name   *string `json:"name"`
 	Avatar *string `json:"avatar"`
+	Email  *string `json:"email"`
 	// AnnouncementsSeen only moves forward.
 	AnnouncementsSeen *string `json:"announcements_seen"`
 }
@@ -373,6 +411,20 @@ func (a *Accounts) UpdateMe(ctx context.Context, in MePatch) (User, error) {
 		}
 		user.Avatar = v
 	}
+	oldEmail := user.Email
+	if in.Email != nil {
+		if !act.Proxy {
+			return User{}, apperr.Validation("email is your sign-in and can't be changed here").WithHint("change it through your sign-in provider")
+		}
+		v := strings.TrimSpace(*in.Email)
+		if v == "" {
+			return User{}, apperr.Validation("email is required")
+		}
+		if !strings.Contains(v, "@") || strings.ContainsAny(v, " \t") {
+			return User{}, apperr.Validation("invalid email %q", v).WithHint("email should look like name@example.com")
+		}
+		user.Email = v
+	}
 	if in.AnnouncementsSeen != nil {
 		t, err := time.Parse(time.RFC3339, *in.AnnouncementsSeen)
 		if err != nil {
@@ -386,7 +438,13 @@ func (a *Accounts) UpdateMe(ctx context.Context, in MePatch) (User, error) {
 		if err := a.Store().UpdateUser(ctx, user); err != nil {
 			return err
 		}
-		return a.Audit(ctx, act, "user.update", "user", user.ID, "updated profile", nil)
+		if err := a.Audit(ctx, act, "user.update", "user", user.ID, "updated profile", nil); err != nil {
+			return err
+		}
+		if user.Email != oldEmail {
+			return a.signOutOthers(ctx, act, "the email changed")
+		}
+		return nil
 	})
 	return user, err
 }
@@ -417,9 +475,9 @@ type IssuedToken struct {
 
 const maxTokenDays = 3650
 
-// CreateToken mints an API token. A token never mints more than it holds.
-// ponytail: no scope is reserved for a signed-in human (pursuit's approve
-// rule); add a HumanOnly list when an app needs one.
+// CreateToken mints an API token. A token never mints more than it holds,
+// and ApproveScope also takes a human who signed in recently (the test a CLI
+// login's approver passes), so an agent's token cannot mint itself one.
 func (a *Accounts) CreateToken(ctx context.Context, in TokenInput) (IssuedToken, error) {
 	act, err := a.Require(ctx, "write")
 	if err != nil {
@@ -439,8 +497,13 @@ func (a *Accounts) CreateToken(ctx context.Context, in TokenInput) (IssuedToken,
 		return IssuedToken{}, err
 	}
 	for _, sc := range scopes {
-		if !act.Can(sc) {
-			return IssuedToken{}, apperr.Forbidden(sc).WithHint("a token can only create tokens with scopes it already holds")
+		if !act.Can(sc) || (sc == ApproveScope && (act.Demo || act.Proxy)) {
+			return IssuedToken{}, apperr.Forbidden(sc).WithHint("a token can only create tokens with scopes it already holds; " + ApproveScope + " tokens are created by a signed-in human")
+		}
+		if sc == ApproveScope {
+			if err := a.sessions().RequireFresh(ctx, act); err != nil {
+				return IssuedToken{}, err
+			}
 		}
 	}
 	if in.ExpiresInDays < 0 || in.ExpiresInDays > maxTokenDays {

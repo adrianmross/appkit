@@ -501,12 +501,12 @@ function TryDemo() {
 // server's own redirect, so this is for the build the API serves itself.
 function ProviderSignIn() {
   const [providers, setProviders] = useState<{ name: string; label: string }[]>([])
-  const [refused, setRefused] = useState(false)
+  const [refused, setRefused] = useState("")
 
   useEffect(() => {
     if (!exportMode()) return
-    // The server sends a refused round trip back here with ?error=provider.
-    setRefused(new URLSearchParams(window.location.search).get("error") === "provider")
+    // The server sends a refused round trip back here with ?error=provider or signups_paused.
+    setRefused(new URLSearchParams(window.location.search).get("error") || "")
     api<{ providers?: { name: string; label: string }[] }>("/v1/auth/providers")
       .then((result) => setProviders(result.providers || []))
       .catch(() => {})
@@ -514,7 +514,8 @@ function ProviderSignIn() {
 
   return (
     <>
-      {refused && <FailNote>That sign-in didn&apos;t work. The provider has to vouch for the email of an account that already exists here.</FailNote>}
+      {refused === "provider" && <FailNote>That sign-in didn&apos;t work. The provider has to vouch for the email of an account that already exists here.</FailNote>}
+      {refused === "signups_paused" && <FailNote>Sign-ups are paused. That email has no account yet; ask the owner for access.</FailNote>}
       {providers.map((p) => (
         <Button key={p.name} variant="outline" asChild>
           <a href={apiUrl(`/v1/auth/${encodeURIComponent(p.name)}/start`)}>Continue with {p.label}</a>

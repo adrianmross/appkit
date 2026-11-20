@@ -102,8 +102,8 @@ func (s Store) FirstUser(ctx context.Context) (User, error) {
 }
 
 func (s Store) UpdateUser(ctx context.Context, u User) error {
-	_, err := s.DB.Exec(ctx, `UPDATE users SET name=?, avatar=?, announcements_seen=? WHERE id=?`, u.Name, u.Avatar, u.AnnouncementsSeen, u.ID)
-	return err
+	_, err := s.DB.Exec(ctx, `UPDATE users SET name=?, email=?, avatar=?, announcements_seen=? WHERE id=?`, u.Name, u.Email, u.Avatar, u.AnnouncementsSeen, u.ID)
+	return mapWriteErr(err)
 }
 
 func (s Store) CountTokens(ctx context.Context) (int, error) {

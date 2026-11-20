@@ -211,6 +211,9 @@ func TestPasskeys(t *testing.T) {
 		if code, b, _ := call("GET", "/v1/passkeys", "", first, nil); code != 200 || !bytes.Contains(b, []byte(`"total":1`)) || bytes.Contains(b, []byte(`"last_used_at":null`)) {
 			t.Fatalf("list: %d %s", code, b)
 		}
+		if code, b, _ := call("GET", "/v1/passkeys?limit=1", "", first, nil); code != 200 || !bytes.Contains(b, []byte(`"limit":1`)) {
+			t.Fatalf("list, paged: %d %s", code, b)
+		}
 
 		// A stranger's key is refused without saying why.
 		code, opts, _ = call("POST", "/v1/auth/passkey/login/begin", "", "", empty)
