@@ -34,6 +34,7 @@ func (f *Fields) fieldsOf() *Fields { return f }
 type Write struct {
 	Fields
 	DryRun         bool   `query:"dry_run" doc:"Run the write and roll it back; the answer is {dry_run, hint, data}."`
+	DryRunHeader   string `header:"X-Dry-Run" enum:"true,1" doc:"As dry_run=true."`
 	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"A repeat of the same request with the same key replays the first answer."`
 }
 
@@ -93,7 +94,7 @@ func Mutate[I, T any](api huma.API, st httpx.IdemStore, op huma.Operation, allow
 		out := &raw{Status: status, ContentType: "application/json"}
 		var err error
 		switch {
-		case w.DryRun:
+		case w.DryRun || w.DryRunHeader != "":
 			out.Status = 200
 			if out.Body, err = run(sqldb.WithDryRun(ctx)); err == nil {
 				out.Body = append(append([]byte(`{"data":`), out.Body...), `,"dry_run":true,"hint":"no changes were written"}`...)

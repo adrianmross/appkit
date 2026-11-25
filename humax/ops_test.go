@@ -63,7 +63,9 @@ func TestGetAndMutate(t *testing.T) {
 		if body != "" {
 			r.Header.Set("Content-Type", "application/json")
 		}
-		if key != "" {
+		if key == "dry" {
+			r.Header.Set("X-Dry-Run", "true")
+		} else if key != "" {
 			r.Header.Set("Idempotency-Key", key)
 		}
 		w := httptest.NewRecorder()
@@ -82,6 +84,7 @@ func TestGetAndMutate(t *testing.T) {
 		{"write", "POST", "/v1/things", `{"name":"a"}`, "", 201, full},
 		{"write projected", "POST", "/v1/things?fields=id", `{"name":"a"}`, "", 201, `{"id":"t1"}`},
 		{"dry run", "POST", "/v1/things?dry_run=true", `{"name":"a"}`, "", 200, `{"data":` + full + `,"dry_run":true,"hint":"no changes were written"}`},
+		{"dry run header", "POST", "/v1/things", `{"name":"a"}`, "dry", 200, `{"data":` + full + `,"dry_run":true,"hint":"no changes were written"}`},
 		{"keyed", "POST", "/v1/things", `{"name":"a"}`, "k1", 201, full},
 		{"replay", "POST", "/v1/things", `{ "name": "a" }`, "k1", 201, full},
 		{"key reused", "POST", "/v1/things", `{"name":"b"}`, "k1", 409, ""},
@@ -95,8 +98,8 @@ func TestGetAndMutate(t *testing.T) {
 		}
 	}
 	// write, write projected and keyed ran; the replay and the refusal did not.
-	if wrote != 3 || dry != 1 {
-		t.Errorf("handler ran %d times for real and %d dry, want 3 and 1", wrote, dry)
+	if wrote != 3 || dry != 2 {
+		t.Errorf("handler ran %d times for real and %d dry, want 3 and 2", wrote, dry)
 	}
 	// The document describes the answer as a thing, and the schema is served.
 	_, doc, _ := do("GET", "/openapi.json", "", "")
