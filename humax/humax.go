@@ -45,11 +45,17 @@ func (e envelope) GetStatus() int { return e["error"].Status }
 
 // New returns a Huma API serving on mux. It replaces huma.NewError, which is
 // process-wide, so every Huma API in the program answers with the envelope.
-func New(mux *http.ServeMux, title, version string) huma.API {
+//
+// Each opt may change the configuration before the API is built: an app that
+// serves its own document sets cfg.OpenAPIPath to "".
+func New(mux *http.ServeMux, title, version string, opts ...func(*huma.Config)) huma.API {
 	huma.NewError = newError
 	cfg := huma.DefaultConfig(title, version)
 	cfg.RejectUnknownQueryParameters = true
 	cfg.DocsPath = ""
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	return humago.New(mux, cfg)
 }
 
