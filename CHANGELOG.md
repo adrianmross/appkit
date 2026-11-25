@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/adrianmross/appkit/compare/v0.6.1...v0.7.0) (2026-11-25)
+
+
+### Features
+
+* **appkit:** Honor ?fields, ?dry_run and Idempotency-Key on Huma operations registered with humax.Get and humax.Mutate, and keep Huma's $schema field on object bodies ([#38](https://github.com/adrianmross/appkit/issues/38)) ([60f915d](https://github.com/adrianmross/appkit/commit/60f915d9bc7dab8fb9d3475853ec0bfae78c5f78))
+
 ## [0.6.1](https://github.com/adrianmross/appkit/compare/v0.6.0...v0.6.1) (2026-11-25)
 
 
