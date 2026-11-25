@@ -32,6 +32,21 @@ func (m memIdem) FinishIdempotency(_ context.Context, _, key string, status int,
 	return nil
 }
 
+// checked has a rule of its own, as an input may.
+type checked struct {
+	Write
+	Body struct {
+		Name string `json:"name"`
+	}
+}
+
+func (c *checked) Resolve(ctx huma.Context) []error {
+	if c.Body.Name == "no" {
+		return []error{&huma.ErrorDetail{Location: "body.name", Message: "name is taken"}}
+	}
+	return nil
+}
+
 func TestGetAndMutate(t *testing.T) {
 	mux := http.NewServeMux()
 	api := New(mux, "test", "0.0.0")
@@ -101,6 +116,31 @@ func TestGetAndMutate(t *testing.T) {
 	if wrote != 3 || dry != 2 {
 		t.Errorf("handler ran %d times for real and %d dry, want 3 and 2", wrote, dry)
 	}
+	// An input's own Resolve runs alongside the one Write brings.
+	Mutate(api, memIdem{}, huma.Operation{Method: "POST", Path: "/v1/checked"}, nil, func(_ context.Context, in *checked) (thing, error) {
+		return thing{ID: "c1"}, nil
+	})
+	if code, body, _ := do("POST", "/v1/checked", `{"name":"a"}`, ""); code != 200 || !strings.Contains(body, `"c1"`) {
+		t.Errorf("own Resolve, ok: %d %s", code, body)
+	}
+	if code, body, _ := do("POST", "/v1/checked", `{"name":"no"}`, ""); code != 400 || !strings.Contains(body, "name is taken") {
+		t.Errorf("own Resolve, refused: %d %s", code, body)
+	}
+	// Refusals Huma makes with other statuses are still a 400 validation.
+	big := `{"name":"` + strings.Repeat("a", 1<<20) + `"}`
+	if code, body, _ := do("POST", "/v1/things", big, ""); code != 400 || !strings.Contains(body, `"code":"validation"`) {
+		t.Errorf("too large: %d %.200s", code, body)
+	}
+	for ct, want := range map[string]int{"application/x-www-form-urlencoded": 201, "text/csv": 400} {
+		r := httptest.NewRequest("POST", "/v1/things", strings.NewReader(`{"name":"a"}`))
+		r.Header.Set("Content-Type", ct)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		if w.Code != want || (want == 400 && !strings.Contains(w.Body.String(), `"code":"validation"`)) {
+			t.Errorf("Content-Type %s: %d %s", ct, w.Code, w.Body.String())
+		}
+	}
+
 	// The document describes the answer as a thing, and the schema is served.
 	_, doc, _ := do("GET", "/openapi.json", "", "")
 	for _, want := range []string{`"201":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/Thing"}`, `"name":"Idempotency-Key"`, `"name":"dry_run"`} {

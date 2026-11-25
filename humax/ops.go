@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -18,13 +19,22 @@ import (
 // then honors ?fields=a,b.
 type Fields struct {
 	Fields []string `query:"fields" doc:"Keep only these fields of the object, or of each item of a page."`
-	hctx   huma.Context
 }
 
-// Resolve keeps the request for Get and Mutate; Huma calls it.
-func (f *Fields) Resolve(ctx huma.Context) []error {
-	f.hctx = ctx
-	return nil
+type requestKey struct{}
+
+// keepRequest is the middleware New adds: Get and Mutate need the request
+// (its URL, the answer's headers) and a Huma handler is given only a context.
+func keepRequest(ctx huma.Context, next func(huma.Context)) {
+	next(huma.WithValue(ctx, requestKey{}, ctx))
+}
+
+func request(ctx context.Context) huma.Context {
+	hctx, ok := ctx.Value(requestKey{}).(huma.Context)
+	if !ok {
+		panic("humax: Get and Mutate need an API built by humax.New")
+	}
+	return hctx
 }
 
 func (f *Fields) fieldsOf() *Fields { return f }
@@ -34,7 +44,7 @@ func (f *Fields) fieldsOf() *Fields { return f }
 type Write struct {
 	Fields
 	DryRun         bool   `query:"dry_run" doc:"Run the write and roll it back; the answer is {dry_run, hint, data}."`
-	DryRunHeader   string `header:"X-Dry-Run" enum:"true,1" doc:"As dry_run=true."`
+	DryRunHeader   string `header:"X-Dry-Run" doc:"true or 1, as dry_run=true."`
 	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"A repeat of the same request with the same key replays the first answer."`
 }
 
@@ -48,8 +58,8 @@ type raw struct {
 	Body   []byte
 }
 
-func answer(f *Fields, status int, body []byte) *raw {
-	f.hctx.SetHeader("Content-Type", "application/json")
+func answer(hctx huma.Context, status int, body []byte) *raw {
+	hctx.SetHeader("Content-Type", "application/json")
 	return &raw{Status: status, Body: body}
 }
 
@@ -69,11 +79,12 @@ func Get[I, T any](api huma.API, op huma.Operation, allowed []string, fn func(co
 		if err != nil {
 			return nil, err
 		}
-		b, err := encode(api, f, status, v)
+		hctx := request(ctx)
+		b, err := encode(api, hctx, f.Fields, status, v)
 		if err != nil {
 			return nil, err
 		}
-		return answer(f, status, b), nil
+		return answer(hctx, status, b), nil
 	})
 }
 
@@ -91,18 +102,19 @@ func Mutate[I, T any](api huma.API, st httpx.IdemStore, op huma.Operation, allow
 		if err := checkFields(w.Fields.Fields, allowed); err != nil {
 			return nil, err
 		}
+		hctx := request(ctx)
 		run := func(ctx context.Context) ([]byte, error) {
 			v, err := fn(ctx, in)
 			if err != nil {
 				return nil, err
 			}
-			return encode(api, &w.Fields, status, v)
+			return encode(api, hctx, w.Fields.Fields, status, v)
 		}
 		code := status
 		var body []byte
 		var err error
 		switch {
-		case w.DryRun || w.DryRunHeader != "":
+		case w.DryRun || strings.EqualFold(w.DryRunHeader, "true") || w.DryRunHeader == "1":
 			code = 200
 			if body, err = run(sqldb.WithDryRun(ctx)); err == nil {
 				body = append(append([]byte(`{"data":`), body...), `,"dry_run":true,"hint":"no changes were written"}`...)
@@ -119,18 +131,18 @@ func Mutate[I, T any](api huma.API, st httpx.IdemStore, op huma.Operation, allow
 					return nil, err
 				}
 			}
-			u := w.hctx.URL()
+			u := hctx.URL()
 			var replayed bool
-			body, code, replayed, err = httpx.Idempotent(ctx, st, w.IdempotencyKey, w.hctx.Method(), u.Path,
-				httpx.RequestHash(w.hctx.Method(), u.Path, u.RawQuery, sent), status, run)
+			body, code, replayed, err = httpx.Idempotent(ctx, st, w.IdempotencyKey, hctx.Method(), u.Path,
+				httpx.RequestHash(hctx.Method(), u.Path, u.RawQuery, sent), status, run)
 			if replayed {
-				w.hctx.SetHeader("Idempotent-Replayed", "true")
+				hctx.SetHeader("Idempotent-Replayed", "true")
 			}
 		}
 		if err != nil {
 			return nil, err
 		}
-		return answer(&w.Fields, code, body), nil
+		return answer(hctx, code, body), nil
 	})
 }
 
@@ -160,8 +172,8 @@ func checkFields(fields, allowed []string) error {
 
 // encode is v as Huma would write it ("$schema" included), then projected.
 // A projection keeps "$schema" only when it is asked for.
-func encode(api huma.API, f *Fields, status int, v any) ([]byte, error) {
-	v, err := api.Transform(f.hctx, strconv.Itoa(status), v)
+func encode(api huma.API, hctx huma.Context, fields []string, status int, v any) ([]byte, error) {
+	v, err := api.Transform(hctx, strconv.Itoa(status), v)
 	if err != nil {
 		return nil, err
 	}
@@ -169,5 +181,5 @@ func encode(api huma.API, f *Fields, status int, v any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return httpx.ProjectBytes(b, f.Fields)
+	return httpx.ProjectBytes(b, fields)
 }

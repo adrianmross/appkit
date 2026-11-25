@@ -15,7 +15,7 @@
 //
 // What differs from Huma's defaults: errors are the {"error":{code,message,
 // hint}} envelope httpx.WriteErr writes, a request that fails validation is
-// a 400 "validation" (not a 422), unknown query parameters are refused
+// a 400 "validation" (not a 422, 413 or 415), unknown query parameters are refused
 // (unknown body fields already are), and the /docs page, which loads its
 // script from a CDN, is off. Huma's "$schema" field stays: an object body
 // names its schema, served under /schemas/.
@@ -53,10 +53,14 @@ func New(mux *http.ServeMux, title, version string, opts ...func(*huma.Config)) 
 	cfg := huma.DefaultConfig(title, version)
 	cfg.RejectUnknownQueryParameters = true
 	cfg.DocsPath = ""
+	// curl -d sends a JSON body under this type, and plain handlers never looked.
+	cfg.Formats["application/x-www-form-urlencoded"] = huma.DefaultJSONFormat
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	return humago.New(mux, cfg)
+	api := humago.New(mux, cfg)
+	api.UseMiddleware(keepRequest)
+	return api
 }
 
 // newError builds the envelope for a failure Huma reports (a request it
@@ -82,7 +86,8 @@ func newError(status int, msg string, errs ...error) huma.StatusError {
 	}
 	detail := strings.Join(parts, "; ")
 	switch {
-	case status == 400 || status == 422:
+	case status == 400 || status == 422 || status == http.StatusRequestEntityTooLarge || status == http.StatusUnsupportedMediaType:
+		// A body too large or of another type is a bad request like any other.
 		if detail != "" {
 			msg += ": " + detail
 		}
