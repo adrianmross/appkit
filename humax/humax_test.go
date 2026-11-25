@@ -65,8 +65,8 @@ func TestContract(t *testing.T) {
 		return w.Code, w.Header().Get("Content-Type"), strings.TrimSpace(w.Body.String())
 	}
 
-	// The actor reaches the handler, and the body has no $schema field.
-	if code, ct, body := post("/v1/things", `{"name":"a"}`); code != 201 || ct != "application/json" || body != `{"id":"t1","name":"a","owner":"u1"}` {
+	// The actor reaches the handler, and the body names its schema.
+	if code, ct, body := post("/v1/things", `{"name":"a"}`); code != 201 || ct != "application/json" || body != `{"$schema":"https://example.com/schemas/Thing.json","id":"t1","name":"a","owner":"u1"}` {
 		t.Errorf("ok: got %d %s %s", code, ct, body)
 	}
 
