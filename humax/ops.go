@@ -41,12 +41,16 @@ type Write struct {
 func (w *Write) writeOf() *Write { return w }
 
 // raw is what Get and Mutate hand Huma: a body already encoded, because a
-// projection and a replay are not a T.
+// projection and a replay are not a T. Its headers are set on the request's
+// huma.Context, so the document does not list them on every answer.
 type raw struct {
-	Status      int
-	ContentType string `header:"Content-Type"`
-	Replayed    string `header:"Idempotent-Replayed"`
-	Body        []byte
+	Status int
+	Body   []byte
+}
+
+func answer(f *Fields, status int, body []byte) *raw {
+	f.hctx.SetHeader("Content-Type", "application/json")
+	return &raw{Status: status, Body: body}
 }
 
 // Get registers a read whose answer is fn's T, as huma.Register would, and
@@ -66,7 +70,10 @@ func Get[I, T any](api huma.API, op huma.Operation, allowed []string, fn func(co
 			return nil, err
 		}
 		b, err := encode(api, f, status, v)
-		return &raw{Status: status, ContentType: "application/json", Body: b}, err
+		if err != nil {
+			return nil, err
+		}
+		return answer(f, status, b), nil
 	})
 }
 
@@ -91,35 +98,39 @@ func Mutate[I, T any](api huma.API, st httpx.IdemStore, op huma.Operation, allow
 			}
 			return encode(api, &w.Fields, status, v)
 		}
-		out := &raw{Status: status, ContentType: "application/json"}
+		code := status
+		var body []byte
 		var err error
 		switch {
 		case w.DryRun || w.DryRunHeader != "":
-			out.Status = 200
-			if out.Body, err = run(sqldb.WithDryRun(ctx)); err == nil {
-				out.Body = append(append([]byte(`{"data":`), out.Body...), `,"dry_run":true,"hint":"no changes were written"}`...)
+			code = 200
+			if body, err = run(sqldb.WithDryRun(ctx)); err == nil {
+				body = append(append([]byte(`{"data":`), body...), `,"dry_run":true,"hint":"no changes were written"}`...)
 			}
 		case w.IdempotencyKey == "":
-			out.Body, err = run(ctx)
+			body, err = run(ctx)
 		default:
 			// ponytail: the hash is over the decoded body re-encoded, not the
 			// bytes sent, so a key first used through a plain httpx handler does
 			// not match here. Hash RawBody if an app ports routes under live keys.
-			var body []byte
+			var sent []byte
 			if b := reflect.ValueOf(in).Elem().FieldByName("Body"); b.IsValid() {
-				if body, err = httpx.Marshal(b.Interface()); err != nil {
+				if sent, err = httpx.Marshal(b.Interface()); err != nil {
 					return nil, err
 				}
 			}
 			u := w.hctx.URL()
 			var replayed bool
-			out.Body, out.Status, replayed, err = httpx.Idempotent(ctx, st, w.IdempotencyKey, w.hctx.Method(), u.Path,
-				httpx.RequestHash(w.hctx.Method(), u.Path, u.RawQuery, body), status, run)
+			body, code, replayed, err = httpx.Idempotent(ctx, st, w.IdempotencyKey, w.hctx.Method(), u.Path,
+				httpx.RequestHash(w.hctx.Method(), u.Path, u.RawQuery, sent), status, run)
 			if replayed {
-				out.Replayed = "true"
+				w.hctx.SetHeader("Idempotent-Replayed", "true")
 			}
 		}
-		return out, err
+		if err != nil {
+			return nil, err
+		}
+		return answer(&w.Fields, code, body), nil
 	})
 }
 
