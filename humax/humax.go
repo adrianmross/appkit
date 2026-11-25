@@ -16,8 +16,12 @@
 // What differs from Huma's defaults: errors are the {"error":{code,message,
 // hint}} envelope httpx.WriteErr writes, a request that fails validation is
 // a 400 "validation" (not a 422), unknown query parameters are refused
-// (unknown body fields already are), bodies carry no "$schema" field, and
-// the /docs page, which loads its script from a CDN, is off.
+// (unknown body fields already are), and the /docs page, which loads its
+// script from a CDN, is off. Huma's "$schema" field stays: an object body
+// names its schema, served under /schemas/.
+//
+// Get and Mutate register an operation with what httpx gives a plain
+// handler: ?fields, ?dry_run and Idempotency-Key.
 package humax
 
 import (
@@ -31,13 +35,13 @@ import (
 	"github.com/adrianmross/appkit/apperr"
 )
 
-// envelope is the error body, the same shape httpx.WriteErr writes.
-type envelope struct {
-	Err *apperr.Error `json:"error"`
-}
+// envelope is the error body, the same shape httpx.WriteErr writes. A map,
+// not a struct, so Huma adds no "$schema" to it and an error reads the same
+// from either kind of handler.
+type envelope map[string]*apperr.Error
 
-func (e *envelope) Error() string  { return e.Err.Error() }
-func (e *envelope) GetStatus() int { return e.Err.Status }
+func (e envelope) Error() string  { return e["error"].Error() }
+func (e envelope) GetStatus() int { return e["error"].Status }
 
 // New returns a Huma API serving on mux. It replaces huma.NewError, which is
 // process-wide, so every Huma API in the program answers with the envelope.
@@ -45,7 +49,6 @@ func New(mux *http.ServeMux, title, version string) huma.API {
 	huma.NewError = newError
 	cfg := huma.DefaultConfig(title, version)
 	cfg.RejectUnknownQueryParameters = true
-	cfg.CreateHooks = nil // the default hook adds "$schema" to every body
 	cfg.DocsPath = ""
 	return humago.New(mux, cfg)
 }
@@ -60,7 +63,7 @@ func newError(status int, msg string, errs ...error) huma.StatusError {
 				cp := *e
 				cp.Status, e = 500, &cp
 			}
-			return &envelope{e}
+			return envelope{"error": e}
 		}
 	}
 	var parts []string
@@ -77,15 +80,15 @@ func newError(status int, msg string, errs ...error) huma.StatusError {
 		if detail != "" {
 			msg += ": " + detail
 		}
-		return &envelope{apperr.Validation("%s", msg)}
+		return envelope{"error": apperr.Validation("%s", msg)}
 	case status >= 500:
 		// As httpx.WriteErr: the cause goes to the server log, not the client.
 		slog.Error("request failed", "err", msg+": "+detail)
-		return &envelope{&apperr.Error{Code: "internal", Message: "internal error", Hint: "check server logs", Status: status}}
+		return envelope{"error": &apperr.Error{Code: "internal", Message: "internal error", Hint: "check server logs", Status: status}}
 	}
 	if detail != "" {
 		msg += ": " + detail
 	}
 	code := strings.ReplaceAll(strings.ToLower(http.StatusText(status)), " ", "_")
-	return &envelope{&apperr.Error{Code: code, Message: msg, Status: status}}
+	return envelope{"error": &apperr.Error{Code: code, Message: msg, Status: status}}
 }
