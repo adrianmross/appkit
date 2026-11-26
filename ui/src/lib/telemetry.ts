@@ -27,6 +27,9 @@ export function initTelemetry() {
       Sentry.init({
         dsn: SENTRY_DSN,
         release: `${brand().slug}@${brand().version}`,
+        // Errors only: the default session tracking posts on every page load
+        // with the visitor's user agent and asks Sentry to record the IP.
+        integrations: (defaults) => defaults.filter((i) => i.name !== "BrowserSession"),
         beforeBreadcrumb: () => null,
         beforeSend(event) {
           delete event.user
